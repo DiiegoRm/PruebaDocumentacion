@@ -1,0 +1,460 @@
+<?php
+ob_start();
+
+switch($_REQUEST["mode"]){
+ case 'new':
+
+	$id=getVal($_POST['txtId']);
+	$name=getStrVal($_POST['txtNombre']);
+	$username=getStrVal($_POST['txtUsername']);
+	$passw=getStrVal($_POST['txtPassword1']);
+	$gid=getVal($_POST['txtGroup']);
+
+	$email=getStrVal($_POST['txtEmail']);
+	$phone=getStrVal($_POST['txtPhone']);
+
+	if(hasVal($name)&&hasVal($username)&&hasVal($passw)&&hasVal($email)&&hasVal($phone)){
+		$sql_update = db_query("INSERT INTO `usuarios` (`id`,`login` , `nombre` , `password`, `idgrupo`,telefono,email,User_LDAP) VALUES ($id,$username,$name, MD5($passw), $gid,$phone,$email,$username)");
+		if($update_user > 0){
+			foreach($_POST as $key=>$value){
+				if(strpos($key,"txtCfg-status_") === 0){
+					$data = explode("_",$key);
+					$idrow = $data[1];
+					if($value==='new'){
+						$tipo=getStrVal($_POST['txtTipo_'.$idrow]);
+						$idregion=getVal($_POST['txtCfg-Region_'.$idrow],"null");
+						$idjefatura=getVal($_POST['txtCfg-Jefatura_'.$idrow],"null");
+						$idzona=getVal($_POST['txtCfg-Zona_'.$idrow],"null");
+						$iddepto=getVal($_POST['txtCfg-Depto_'.$idrow],"null");
+						$idlocalidad=getVal($_POST['txtCfg-Localidad_'.$idrow],"null");
+						$idsector=getVal($_POST['txtCfg-Sector_'.$idrow],"null");
+						$idsegmento=getVal($_POST['txtCfg-Segmento_'.$idrow],"null");
+						$ideecc=getVal($_POST['txtCfg-EECC_'.$idrow],"null");
+						$sql = "INSERT INTO configuracion(tipo,idusuario,idjefatura,idregion,idzona,iddepto,idlocalidad,idsector,idsegmento,ideecc) VALUES($tipo,$id,$idjefatura,$idregion,$idzona,$iddepto,$idlocalidad,$idsector,$idsegmento,$ideecc)";
+						db_query($sql);
+					}
+				}
+			}
+		}
+		printMessage("Actualizando base de datos, por favor espere..","ok");
+	}
+	else {
+	 printMessage("No ha completado los campos obligatorios...","error");
+	}
+ break;
+ case 'save':
+
+	$id=getVal($_POST['txtId']);
+	$name=getStrVal($_POST['txtNombre']);
+	$username=getStrVal($_POST['txtUsername']);
+	//$passw=getStrVal($_POST['txtPassword1']);
+	$gid=getVal($_POST['txtGroup']);
+
+	$email=getStrVal($_POST['txtEmail']);
+	$phone=getStrVal($_POST['txtPhone']);
+
+	if(hasVal($name)&&hasVal($username)&&hasVal($email)&&hasVal($phone)){
+		$sql="UPDATE `usuarios` SET `login` = $username, `nombre` = $name, `idgrupo` = $gid, telefono=$phone, email=$email, User_LDAP=$username WHERE `id` = $id";
+		$update_user = db_query($sql);
+		if($update_user > 0){
+			foreach($_POST as $key=>$value){
+				if(strpos($key,"txtCfg-status_") === 0){
+					$data = explode("_",$key);
+					$idrow = $data[1];
+					switch($value){
+						case 'new':
+							$tipo=getStrVal($_POST['txtTipo_'.$idrow]);
+							$idregion=getVal($_POST['txtCfg-Region_'.$idrow],"null");
+							$idjefatura=getVal($_POST['txtCfg-Jefatura_'.$idrow],"null");
+							$idzona=getVal($_POST['txtCfg-Zona_'.$idrow],"null");
+							$iddepto=getVal($_POST['txtCfg-Depto_'.$idrow],"null");
+							$idlocalidad=getVal($_POST['txtCfg-Localidad_'.$idrow],"null");
+							$idsector=getVal($_POST['txtCfg-Sector_'.$idrow],"null");
+							$idsegmento=getVal($_POST['txtCfg-Segmento_'.$idrow],"null");
+							$ideecc=getVal($_POST['txtCfg-EECC_'.$idrow],"null");
+							$sql = "INSERT INTO configuracion(tipo,idusuario,idjefatura,idregion,idzona,iddepto,idlocalidad,idsector,idsegmento,ideecc) VALUES($tipo,$id,$idjefatura,$idregion,$idzona,$iddepto,$idlocalidad,$idsector,$idsegmento,$ideecc)";
+							db_query($sql);
+						 break;
+						case 'edited':
+							$idregion=getVal($_POST['txtCfg-Region_'.$idrow],"null");
+							$idjefatura=getVal($_POST['txtCfg-Jefatura_'.$idrow],"null");
+							$idzona=getVal($_POST['txtCfg-Zona_'.$idrow],"null");
+							$iddepto=getVal($_POST['txtCfg-Depto_'.$idrow],"null");
+							$idlocalidad=getVal($_POST['txtCfg-Localidad_'.$idrow],"null");
+							$idsector=getVal($_POST['txtCfg-Sector_'.$idrow],"null");
+							$idsegmento=getVal($_POST['txtCfg-Segmento_'.$idrow],"null");
+							$ideecc=getVal($_POST['txtCfg-EECC_'.$idrow],"null");
+							$sql = "UPDATE configuracion SET idjefatura=$idjefatura,idregion=$idregion,idzona=$idzona,iddepto=$iddepto,idlocalidad=$idlocalidad,idsector=$idsector,idsegmento=$idsegmento,ideecc=$ideecc WHERE id=$idrow";
+							//echo $sql;
+							db_query($sql);
+						 break;
+						case 'deleted':
+							$sql = "DELETE FROM configuracion WHERE id=$idrow";
+							db_query($sql);
+						 break;
+					}
+				}
+			}
+		}
+		printMessage("Actualizando base de datos, por favor espere..","ok");
+		//printAndStay("Actualizando base de datos, por favor espere..","error");
+	}
+	else {
+		printMessage("No ha completado los campos obligatorios...","error");
+	}
+ break;
+ case 'add':
+ ?>
+<?php include_once 'parts/admin.user.cfg.inc.php'; ?>
+ <div class="section">
+	<div class="info">
+	 <div class="formpage">
+		<div class="outerbox">
+			<div class="mainHeading"><h2>Adicionar Usuario</h2></div>
+			 <div class="messagebar">
+                <span id="message" class="error"></span>
+            </div>
+			<form name="frmSubmit" id="frmSubmit" method="post" action="?menu=<?php echo getMenu();?>&amp;mode=new">
+				<input type="hidden" id="txtAdd" name="txtAdd" value="Si"/>
+				<table class="data-ro" id="tables-all">
+					<tr>
+						<td class="title"><span class="required">*</span>Doc. Identidad:</span></td>
+						<td class="field" style="width:33%"><?php echo getInputField('txtId',"","maxlength='11'");?></td>
+						<td class="title"><span class="required">*</span>Usuario:</span></td>
+						<td class="field"><?php echo getInputField('txtUsername',"","maxlength='32'");?></td>
+					</tr>
+					<tr>
+						<td class="title"><span class="required">*</span>Nombre:</span></td>
+						<td class="field"><?php echo getInputField('txtNombre',"","maxlength='200'");?></td>
+						<td class="title"><span class="required">*</span>Telefono:</span></td>
+						<td class="field"><?php echo getInputField('txtPhone',"","maxlength='30'");?></td>
+					</tr>
+					<tr>
+						<td class="title"><span class="required">*</span>Email:</span></td>
+						<td class="field"><?php echo getInputField('txtEmail',"","maxlength='100'");?></td>
+						<td class="title"><span class="required">*</span>Grupo:</span></td>
+						<td class="field">
+							<select name="txtGroup" id="txtGroup" tabindex="1">
+								<?php
+									$val = @db_query("SELECT id,nombre,CASE WHEN id= $GRP_SEG_CONSULTA or id=$GRP_SEG_REGISTRO or id=$GRP_SEG_CIERRE THEN 'Segmento' WHEN id=$GRP_EECC THEN 'Contratista' ELSE 'Otro' END perfil FROM grupos WHERE active='Si' AND id > 1");
+									if (mysqli_num_rows($val) > 0){
+										while($row = mysqli_fetch_array($val)){
+											$gid = $row['id'];
+											$group = $row['nombre'];
+											if ($usrgid == $gid) {
+												echo "<option value=\"".htmlspecialchars($gid)."\" selected='selected'>".htmlspecialchars($group)."|".htmlspecialchars($row[perfil])."</option>";
+												} else {
+												echo "<option value=\"".htmlspecialchars($gid)."\">".htmlspecialchars($group)."|".htmlspecialchars($row[perfil])."</option>";
+											}
+										}
+									}
+								?>
+							</select>
+						</td>
+					</tr>
+					<tr>
+						<td class="title"><span class="required">*</span>Contrase&ntilde;a:</span></td>
+						<td class="field"><?php echo getInput('txtPassword1','password',"","maxlength='32'");?></td>
+						<td class="title"><span class="required">*</span>Confirmaci&oacute;n:</span></td>
+						<td class="field"><?php echo getInput('txtPassword2','password',"","maxlength='32'");?></td>
+					</tr>
+				</table>
+				<hr />
+				<div id="table-users" class="ui-widget">
+					<table id="configuration" class="ui-widget ui-widget-content" style="width:100%">
+						<thead>
+							<tr class="ui-widget-header ">
+								<th>Tipo</th>
+								<th>Region</th>
+								<th>Jefatura</th>
+								<th>Zona</th>
+								<th>Departamento</th>
+								<th>Localidad</th>
+								<th>Sector</th>
+								<th>Segmento</th>
+								<th>EECC</th>
+								<th colspan="2"><span class="ui-icon ui-icon-circle-plus" onclick="addConfig(0)"/></th>
+							</tr>
+						</thead>
+						<tbody>
+						</tbody>
+					</table>
+				</div>
+				<div class="formbuttons">
+				<?php if($appuser->isInRole($ADMINISTRACION)){ ?>
+					<button type="submit" id="editBtn">Guardar</button>
+				<?php } ?>
+					<button type="button" onclick="javascript:window.history.go(-1); return false;">Cancelar</button>
+				</div>
+			</form>
+		</div>
+		<div class="requirednotice">Los campos marcados con asterisco <span class="required">*</span> son obligatorios.</div>
+	</div>
+	</div>
+ </div>
+ <script type="text/javascript" src="js/val/users.js?ver=<?php echo SGP_VERSION?>"></script>
+<?php
+ break;
+ case 'edit':
+
+	$id=getVal($_GET['id']);
+	$r =  db_query("SELECT * FROM `usuarios` WHERE `id` = $id");
+	$row = mysqli_fetch_array($r);
+	if (count($row)>0) {
+		$username = $row['login'];
+		$name = $row['nombre'];
+		$usrgid = $row['idgrupo'];
+		$passw = $row['password'];
+		$phone = $row['telefono'];
+		$email = $row['email'];
+		$idsegmento=$row['idsegmento'];
+		$idjefatura=$row['idjefatura'];
+		$idregion=$row['idregion'];
+		$iddepto=$row['iddepto'];
+		$idlocalidad=$row['idlocalidad'];
+		$idsector=$row['idsector'];
+		$ideecc=$row['ideecc'];
+        $created = $row['create_date'];
+        $modified = isset($row['modify_date'])?$row['modify_date']:'Nunca';
+ ?>
+<?php include_once 'parts/admin.user.cfg.inc.php'; ?>
+ <div class="section">
+	<div class="info">
+	 <div class="formpage">
+		<div class="outerbox">
+			<div class="mainHeading"><h2>Editar usuario</h2></div>
+			 <div class="messagebar">
+                <span id="message" class="error"></span>
+            </div>
+			<form name="frmSubmit" id="frmSubmit" method="post" action="?menu=<?php echo getMenu();?>&amp;mode=save">
+				<table class="data-ro" id="tables-all">
+					<td class="title">ID:</td>
+					<td class="id">
+						<?php echo htmlspecialchars($id)?>&nbsp;&nbsp;-&nbsp;[Creado: <?php echo htmlspecialchars($created)?>&nbsp;|&nbsp;Modificado: <?php echo htmlspecialchars($modified)?>]&nbsp;-
+						<?php echo getInputHidden('txtId',$id)?>
+					</td>
+					<tr>
+						<td class="title"><span class="required">*</span>Doc. Identidad:</span></td>
+						<td class="field" style="width:33%"><?php echo $id;?></td>
+						<td class="title"><span class="required">*</span>Usuario:</span></td>
+						<td class="field"><?php echo getInputDisable('txtUsername',htmlspecialchars($username),"maxlength='32'");?></td>
+					</tr>
+					<tr>
+						<td class="title"><span class="required">*</span>Nombre:</span></td>
+						<td class="field"><?php echo getInputDisable('txtNombre',htmlspecialchars($name),"maxlength='200'");?></td>
+						<td class="title"><span class="required">*</span>Telefono:</span></td>
+						<td class="field"><?php echo getInputDisable('txtPhone',htmlspecialchars($phone),"maxlength='30'");?></td>
+					</tr>
+					<tr>
+						<td class="title"><span class="required">*</span>Email:</span></td>
+						<td class="field"><?php echo getInputDisable('txtEmail',htmlspecialchars($email),"maxlength='100'");?></td>
+						<td class="title"><span class="required">*</span>Grupo:</span></td>
+						<td class="field">
+							<select name="txtGroup" id="txtGroup" disabled="disabled" tabindex="1">
+								<?php
+								$val = @db_query("SELECT id,nombre,CASE WHEN id=$GRP_SEG_CONSULTA or id=$GRP_SEG_REGISTRO or id=$GRP_SEG_CIERRE THEN 'Segmento' WHEN id=$GRP_EECC THEN 'Contratista' ELSE 'Otro' END perfil FROM grupos WHERE active='Si' AND id > 1");
+								if (mysqli_num_rows($val) > 0){
+									while($row = mysqli_fetch_array($val)){
+										$gid = $row['id'];
+										$group = $row['nombre'];
+										if ($usrgid == $gid) {
+											echo "<option value=\"".htmlspecialchars($gid)."\" selected='selected'>".htmlspecialchars($group)."|".htmlspecialchars($row[perfil])."</option>";
+											} else {
+											echo "<option value=\"".htmlspecialchars($gid)."\">".htmlspecialchars($group)."|".htmlspecialchars($row[perfil])."</option>";
+										}
+									}
+								}
+								?>
+							</select>
+						</td>
+					</tr>
+				</table>
+				<br class="clear"/>
+				<?php if($id > 1){ ?>
+				<hr />
+				<div id="table-users" class="ui-widget">
+					<table id="configuration" class="ui-widget ui-widget-content" style="width: 100%">
+						<thead>
+							<tr class="ui-widget-header ">
+								<th>Tipo</th>
+								<th>Region</th>
+								<th>Jefatura</th>
+								<th>Zona</th>
+								<th>Departamento</th>
+								<th>Localidad</th>
+								<th>Sector</th>
+								<th>Segmento</th>
+								<th>EECC</th>
+								<th colspan="2"><span class="ui-icon ui-icon-circle-plus" onclick="addConfig()"></span></th>
+							</tr>
+						</thead>
+						<tbody>
+						<?php
+							$dataq = @db_query("SELECT c.id,c.tipo,c.idsegmento,IFNULL(s.nombre,'-') segmento,
+												c.idjefatura,IFNULL(j.nombre,'-') jefatura,
+												c.idregion,IFNULL(r.nombre,'-') region,
+												c.idzona,IFNULL(z.nombre,'-') zona,
+												c.iddepto,IFNULL(d.nombre,'-') depto,
+												c.idlocalidad,IFNULL(l.nombre,'-') localidad,
+												c.idsector,IFNULL(st.nombre,'-') sector,
+												c.ideecc,IFNULL(e.nombre,'-') eecc
+											FROM configuracion c
+											   LEFT JOIN segmentos s ON (c.idsegmento=s.id)
+											   LEFT JOIN jefaturas j ON (c.idjefatura=j.id)
+											   LEFT JOIN regiones r ON (c.idregion=r.id)
+											   LEFT JOIN zonas z ON (c.idzona=z.id)
+											   LEFT JOIN deptos d ON (c.iddepto=d.id)
+											   LEFT JOIN localidades l ON (c.idlocalidad=l.id)
+											   LEFT JOIN sectores st ON (c.idsector=st.id)
+											   LEFT JOIN eecc e ON (c.ideecc=e.id)
+											   WHERE c.idusuario=$id");
+											   
+							if (mysqli_num_rows($dataq) != 0) {
+								while($rowq = mysqli_fetch_array($dataq)){?>
+									<tr data-row="<?php echo $rowq['id']; ?>">
+									<input type='hidden' id='txtCfg-status_<?php echo $rowq['id']; ?>' name='txtCfg-status_<?php echo $rowq['id']; ?>' value='none'/>
+									<td><?php echo htmlspecialchars($rowq['tipo']); ?></td>
+									<td><span id="lbCfg-Region_<?php echo htmlspecialchars($rowq['id']); ?>"><?php echo htmlspecialchars($rowq['region']); ?></span><input type="hidden" id="txtCfg-Region_<?php echo htmlspecialchars($rowq['id']); ?>" name="txtCfg-Region_<?php echo htmlspecialchars($rowq['id']); ?>" value="<?php echo $rowq['idregion']?>"/></td>
+									<td><span id="lbCfg-Jefatura_<?php echo htmlspecialchars($rowq['id']); ?>"><?php echo htmlspecialchars($rowq['jefatura']); ?></span><input type="hidden" id="txtCfg-Jefatura_<?php echo htmlspecialchars($rowq['id']); ?>" name="txtCfg-Jefatura_<?php echo htmlspecialchars($rowq['id']); ?>" value="<?php echo $rowq['idjefatura']?>"/></td>
+									<td><span id="lbCfg-Zona_<?php echo htmlspecialchars($rowq['id']); ?>"><?php echo htmlspecialchars($rowq['zona']); ?></span><input type="hidden" id="txtCfg-Zona_<?php echo htmlspecialchars($rowq['id']); ?>" name="txtCfg-Zona_<?php echo htmlspecialchars($rowq['id']); ?>" value="<?php echo $rowq['idzona']?>"/></td>
+									<td><span id="lbCfg-Depto_<?php echo htmlspecialchars($rowq['id']); ?>"><?php echo htmlspecialchars($rowq['depto']); ?></span><input type="hidden" id="txtCfg-Depto_<?php echo htmlspecialchars($rowq['id']); ?>" name="txtCfg-Depto_<?php echo htmlspecialchars($rowq['id']); ?>" value="<?php echo $rowq['iddepto']?>"/></td>
+									<td><span id="lbCfg-Localidad_<?php echo htmlspecialchars($rowq['id']); ?>"><?php echo htmlspecialchars($rowq['localidad']); ?></span><input type="hidden" id="txtCfg-Localidad_<?php echo htmlspecialchars($rowq['id']); ?>" name="txtCfg-Localidad_<?php echo htmlspecialchars($rowq['id']); ?>" value="<?php echo $rowq['idlocalidad']?>"/></td>
+									<td><span id="lbCfg-Sector_<?php echo htmlspecialchars($rowq['id']); ?>"><?php echo htmlspecialchars($rowq['sector']); ?></span><input type="hidden" id="txtCfg-Sector_<?php echo htmlspecialchars($rowq['id']); ?>" name="txtCfg-Sector_<?php echo htmlspecialchars($rowq['id']); ?>" value="<?php echo $rowq['idsector']?>"/></td>
+									<td><span id="lbCfg-Segmento_<?php echo htmlspecialchars($rowq['id']); ?>"><?php echo htmlspecialchars($rowq['segmento']); ?></span><input type="hidden" id="txtCfg-Segmento_<?php echo htmlspecialchars($rowq['id']); ?>" name="txtCfg-Segmento_<?php echo htmlspecialchars($rowq['id']); ?>" value="<?php echo $rowq['idsegmento']?>"/></td>
+									<td><span id="lbCfg-EECC_<?php echo htmlspecialchars($rowq['id']); ?>"><?php echo htmlspecialchars($rowq['eecc']); ?></span><input type="hidden" id="txtCfg-EECC_<?php echo htmlspecialchars($rowq['id']); ?>" name="txtCfg-EECC_<?php echo htmlspecialchars($rowq['id']); ?>" value="<?php echo $rowq['ideecc']?>"/></td>
+									<td><span class="ui-icon ui-icon-pencil" onclick="editConfig('<?php echo htmlspecialchars($rowq['tipo']); ?>',<?php echo htmlspecialchars($rowq['id']); ?>)"></span></td>
+									<td><span class="ui-icon ui-icon-circle-close" onclick="delConfig(<?php echo htmlspecialchars($rowq['id']); ?>)"></span></td>
+									</tr>
+								<?php
+								}
+							}
+						?>
+						</tbody>
+					</table>
+				</div>
+				<?php } ?>
+				<br class="clear"/>
+				<div class="formbuttons">
+				<?php if($appuser->isInRole($ADMINISTRACION) && ($id != $appuser->uid || $appuser->uid == 1)){ ?>
+					<button type="button" onclick="enableGroup()&edit();"><span id="editBtn">Editar</span></button>
+				<?php } ?>
+					<button type="button" onclick="javascript:window.history.go(-1); return false;">Cancelar</button>
+				</div>
+			</form>
+		</div>
+		<div class="requirednotice">Los campos marcados con asterisco <span class="required">*</span> son obligatorios.</div>
+	</div>
+	</div>
+ </div>
+ <script type="text/javascript" src="js/val/users.js?ver=<?php echo SGP_VERSION?>"></script>
+<?php
+	 }
+ break;
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+default:
+	$sort=getVal($_GET['sort'],"0");
+	$order=getVal($_GET['order'],"null");
+	$pageNO=getVal($_POST['pageNO'],"1");
+	$rowsxPage=30;
+
+	if($_POST['delState']){
+		$del = $_POST['chkLocID'];
+		$n = count($del);
+		for ($i=0; $i < $n; $i++){
+			switch($_POST['delState']){
+				case 'DeleteMode':
+					if($del[$i]>1&&$del[$i]!=$appuser->uid)$sql_update = db_query("DELETE FROM `usuarios` WHERE id={$del[$i]}");
+					break;
+				case 'EnableMode':
+					if($del[$i]>1&&$del[$i]!=$appuser->uid){
+						db_query("UPDATE `usuarios` SET `active`='Si' WHERE id={$del[$i]}");
+						db_query("UPDATE IGNORE `ingresos` SET last_login=CURRENT_TIMESTAMP WHERE idusuario={$del[$i]}");
+					}
+					break;
+				case 'DisableMode':
+					if($del[$i]>1&&$del[$i]!=$appuser->uid)db_query("UPDATE `usuarios` SET `active`='No' WHERE id={$del[$i]}");
+					break;
+			}
+		}
+		printMessage("Actualizando base de datos, por favor espere..","ok");
+	}
+	else {
+
+		$_SESSION['filters'] = getSQLFilters().getSQLSort();
+		$sql = "SELECT u.id,u.login,u.nombre,u.active,g.nombre groupname FROM `usuarios` u, `grupos` g WHERE u.idgrupo = g.id".getSQLFilters().getSQLSort();
+		$q = db_query($sql);
+		$regCount = mysqli_num_rows($q);
+
+		$maxPage = ceil($regCount/$rowsxPage);
+		$rowFrom = (($pageNO-1) * $rowsxPage);
+		$fields = array("u.id"=>"Id","u.login"=>"Usuario","u.nombre"=>"Nombre","g.nombre"=>"Grupo","u.active"=>"Activo");
+
+		$hash = getRandomString();
+  		setReport($hash,"Usuarios",$sql);
+?>
+<div class="section">
+	<div class="info">
+	 <div class="outerbox">
+		<div class="mainHeading"><h2>Usuarios</h2></div>
+		<form name="frmSubmit" id="frmSubmit" method="post" action="?menu=<?php echo getMenu();?>&amp;sort=<?php echo $sort;?>&amp;order=<?php echo $order;?>">
+		<input type="hidden" name="captureState" value="" />
+		<input type="hidden" name="delState" value="" />
+		<input type="hidden" name="pageNO" value="<?php echo $pageNO;?>" />
+		<div class="actionbar">
+			<?php printButtonSet($appuser,$fields) ?>
+			<table class="data-ro">
+				<tr>
+					<td><button type="button" onclick="exportXLSUsuario('<?php echo $hash; ?>');">Exportar</button></td>
+				</tr>
+			</table>
+		</div>
+		<div>
+			<div class="noresultsbar"><?php echo htmlspecialchars($regCount)==0?"No hay registros para mostrar!":""?></div>
+			<div class="pagingbar">
+				<?php paginate($maxPage, $pageNO, $regCount);?>
+			</div>
+		</div>
+		<br class="clear" />
+		<table cellspacing="0" cellpadding="0" class="data-table">
+			<thead>
+			<tr>
+				<td width="20">
+					<input type="checkbox" name="allCheck" id="allCheck" class="checkbox" style="margin-left:1px" onclick="doHandleAll()" />
+				</td>
+				<?php printColumns($fields);?>
+				</tr>
+			</thead>
+			<tbody>
+<?php
+				$query = db_query("$sql LIMIT $rowFrom, $rowsxPage");
+				//echo "$sql LIMIT $rowFrom, $rowsxPage";
+				$i=0;
+				while($row = mysqli_fetch_array($query)) {
+					$style = $row['active']=='Si'?($i++%2==0)?"odd":"even":"disabled";
+					echo "<tr class=\"$style\">\n";
+					echo "<td ><input type=\"checkbox\" class=\"checkbox\" name=\"chkLocID[]\" value=\"".htmlspecialchars($row[id])."\" onclick=\"unCheckMain();\" /></td>\n";
+					echo "<td>".htmlspecialchars($row[id])."</td>\n";
+					if($appuser->uid==1||$row['id']>2&&$row['id']!=$appuser->uid&&$row['active']=='Si'){
+					echo "<td><a href=\"?menu=".getMenu()."&amp;mode=edit&amp;id=".htmlspecialchars($row[id])."\">".htmlspecialchars($row[login])."</a></td>\n";
+					}
+					else {
+					 echo "<td>".htmlspecialchars($row[login])."</td>\n";
+					}
+					echo "<td>".htmlspecialchars($row[nombre])."</td>\n";
+					echo "<td>".htmlspecialchars($row[groupname])."</td>\n";
+					echo "<td>".htmlspecialchars($row[active])."</td>\n";
+					echo "</tr>\n";
+				}
+?>
+			</tbody>
+		</table>
+	</form>
+</div>
+</div>
+</div>
+<?php
+	}
+} // end switch
+//------------------------------------------------------------------------------------------
+?>
