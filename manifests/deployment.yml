@@ -1,0 +1,19 @@
+apiVersion : apps/v1
+kind: Deployment
+metadata:
+  name: gestot-desa 
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gestot-desa
+  template:
+    metadata:
+      labels:
+        app: gestot-desa 
+    spec:
+      containers:
+        - name: gestot-desa 
+          image: aproddevopsrc.azurecr.io/gestot-desa
+          ports:
+          - containerPort: 80
