@@ -1,0 +1,690 @@
+<?php
+ob_start();
+switch($_REQUEST["mode"]){
+case 'make':
+	
+	$idpp=getVal($_GET['id1'],"0");//
+	$idpp=mysqli_real_escape_string($dbsgp,$idpp);//KIUWAN
+
+	$idvb=getVal($_GET['id2'], 'null');//
+	
+	$idvb2 = (is_null($idvb) or $idvb == 'null')  ? 0 : $idvb; 
+	$idvb=mysqli_real_escape_string($dbsgp,$idvb);//KIUWAN
+
+	if($idpp > 0){
+		$vbot = getSQLValue("SELECT COUNT(IFNULL(idviabilidad,0)) FROM ordenes WHERE idviabilidad IS NOT NULL AND idviabilidad=".$idvb2);
+		if($vbot == 0){
+		$sql = "INSERT INTO ordenes (`numero`,`fecha_solicitud`,`idestadoot`,`idsegmento`,`idtipoot`,`fecha_requerida`,`idcontrato`,`idzona`,`iddepto`,`idlocalidad`,`idtipored`,
+			`nombre`,`direccion`,`idviabilidad`,`idpresupuesto`,`ds`,`epro`,`trs`,`idclaseproyecto`,`idtipoproyecto`,`idpep`,`notas_ing`,`notas`,`ideecc`,`eeccxresponsable`,`resp_movistar`,
+			`resp_eecc`,`iddistribuidor`,`armario`,`cable`,`idpop`,`parprim`,`parsec`,`parkm`,`kmfibra`,`mtsducto`,`idvelmaxba`,`distarm`,`iddistcaja`,`viviendas`,`torres`,`bocas`,`verticales`,latitud,longitud,atrib_dist,atrib_arm,`create_user`,`modify_user`, `idcable`,
+`idcentral`,
+`conversor`,
+`idregion`,
+`idpoligono`,
+`idcomuna`,
+`id_cluster`,
+`sub_cluster`,
+`hh_pasados`,
+`idtipozona`)
+		SELECT '0',CURRENT_DATE,$OT_ST_ENCREACION,`idsegmento`,`idtipoot`,DATE_ADD(CURRENT_DATE,INTERVAL DATEDIFF(`fecha_requerida`,`fecha_solicitud`) DAY),`idcontrato`,`idzona`,`iddepto`,`idlocalidad`,`idtipored`,`nombre`,`direccion`,$idvb,`id`,`ds`,`epro`,`trs`,`idclaseproyecto`,`idtipoproyecto`,null,`notas`,'Orden Iniciada',`ideecc`,`eeccxresponsable`,`resp_movistar`,`resp_eecc`,`iddistribuidor`,`armario`,`cable`,`idpop`,`parprim`,`parsec`,`parkm`,`kmfibra`,`mtsducto`,`idvelmaxba`,`distarm`,`iddistcaja`,`viviendas`,`torres`,`bocas`,`verticales`,latitud,longitud,atrib_dist,atrib_arm,$appuser->uid,$appuser->uid,
+		(select cable from viabilidades where id = '$idvb2') cable,
+(select idcentral from viabilidades where id = '$idvb2') idcentral,
+(select conversor from viabilidades where id = '$idvb2') conversor,
+(select id_region from viabilidades where id = '$idvb2') id_region,
+(select idpoligono from viabilidades where id = '$idvb2') idpoligono,
+(select idcomuna from viabilidades where id = '$idvb2') idcomuna,
+(select idcluster from viabilidades where id = '$idvb2') idcluster,
+(select subcluster from viabilidades where id = '$idvb2') subcluster,
+(select hogares_pasados from viabilidades where id = '$idvb2') hogares_pasados,
+(select idtipozona from viabilidades where id = '$idvb2') idtipozona
+	  FROM presupuesto WHERE estado='CREADO' AND `id` = '$idpp'";
+
+	if(db_query($sql) > 0){
+		$lastot = getLastId();
+		db_query("INSERT INTO cronograma(idorden,version) VALUES($lastot,$OT_VER_GENERADA)");
+		$newcrono = getLastId();
+		db_query("INSERT INTO tareas(idcrono,idtipo,duracion,antecesor) SELECT $newcrono,t.idtipo,t.duracion,t.antecesor FROM pretareas t, precronograma c WHERE t.idcrono=c.id AND c.idpresupuesto=$idpp");
+		$lastcrono = getSQLValue("SELECT IFNULL(id,0) FROM precronograma WHERE idpresupuesto=$idpp");
+		$lastminid = getSQLValue("SELECT MIN(id) FROM pretareas WHERE idcrono=$lastcrono");
+		$ds_vb = getSQLValue("select ds from sgp.viabilidades  where id=$idvb");
+	       $ds_pp = getSQLValue("select case when  ds is null then 'NOEXISTE' else ds end  ds from sgp.presupuesto  where id=$idpp");
+		$newminid = getSQLValue("SELECT MIN(id) FROM tareas WHERE idcrono=$newcrono");
+		db_query("UPDATE tareas SET antecesor = $newminid + (antecesor - $lastminid) WHERE idcrono=$newcrono AND antecesor IS NOT NULL");
+		$numero = "OT-".padZeroLeft($lastot,8);
+		db_query("UPDATE `ordenes` SET numero='$numero' WHERE id=$lastot");
+		db_query("INSERT INTO inventario(id_orden,numero_orden,departamento,distribuidor,armario,latitud,longitud,atrib_dist,atrib_arm,usuario,estado)
+		SELECT id, numero,iddepto, iddistribuidor, armario, latitud, longitud, atrib_dist,atrib_arm, create_user, $OT_ST_ENCREACION FROM ordenes WHERE id=$lastot");
+		//->Update Files
+		$r =  db_query("SELECT titulo,archivo,create_user FROM adjuntospp WHERE idpresupuesto=$idpp");
+		while ($row = mysqli_fetch_array($r)) {
+			$filename = $lastot."_".$row['archivo'];
+			$rowarc=$row['archivo'];
+			if(copy(PP_FILE_PATH. DIRECTORY_SEPARATOR .basename($rowarc),OT_FILE_PATH. DIRECTORY_SEPARATOR .basename($filename))) {
+				db_query("INSERT INTO adjuntosot(idorden,titulo,archivo,create_user) VALUES($lastot,'$row[titulo]','$filename',$row[create_user])");
+			}
+		}
+		db_query("INSERT INTO materialesxorden
+				 (`idorden`,`version`,`idbaremo`,`idmaterial`,`factor`,`unidad`,`valor`,`cantidad`,`movistar`,`parkm`,`mtsducto`,`puntoa`,`puntob`,`v1`,`v2`,`v3`,`v4`,`v5`,`v6`,`empalmes`)
+				SELECT  $lastot,$OT_VER_GENERADA,`idbaremo`,`idmaterial`,`factor`,`unidad`,`valor`,`cantidad`,`movistar`,`parkm`,`mtsducto`,`puntoa`,`puntob`,`v1`,`v2`,`v3`,`v4`,`v5`,`v6`,`empalmes`
+				FROM materialesxpresupuesto WHERE idpresupuesto=$idpp");
+		db_query("INSERT INTO retalxorden
+				 (`idorden`,`version`,`idbaremo`,`idmaterial`,`factor`,`unidad`,`valor`,`cantidad`,`movistar`,`parkm`,`mtsducto`,`puntoa`,`puntob`,`v1`,`v2`,`v3`,`v4`,`v5`,`v6`,`empalmes`)
+				SELECT  $lastot,$OT_VER_GENERADA,`idbaremo`,`idmaterial`,`factor`,`unidad`,`valor`,`cantidad`,`movistar`,`parkm`,`mtsducto`,`puntoa`,`puntob`,`v1`,`v2`,`v3`,`v4`,`v5`,`v6`,`empalmes`
+				FROM retalxpresupuesto WHERE idpresupuesto=$idpp");
+		db_query("INSERT INTO actividadesxorden (`idorden`,`version`,`idbaremo`,`puntos`,`material`,`cantidad`,`suplemento`,`mtsducto`,`pares`,`empalmes`,`depende`)
+				SELECT $lastot,$OT_VER_GENERADA,`idbaremo`,`puntos`,`material`,`cantidad`,`suplemento`,`mtsducto`,`pares`,`empalmes`,IF(depende IS NOT NULL AND depende!='',CONCAT('$lastot','-','$OT_VER_GENERADA','-',SUBSTRING_INDEX(depende,'-',-1)),'')
+				FROM actividadesxpresupuesto WHERE idpresupuesto=$idpp");
+
+		db_query("INSERT INTO totalesxorden(idorden,version,fdepto,cdirecto,claseh,costoaiu,utilidadp,utilidad,ivap,iva,tpb,tmo,tca,tma,totros,tpry) SELECT $lastot,$OT_VER_GENERADA,fdepto,cdirecto,claseh,costoaiu,utilidadp,utilidad,ivap,iva,tpb,tmo,tca,tma,totros,tpry FROM totalesxpresupuesto WHERE idpresupuesto=$idpp");
+
+		db_query("INSERT INTO preciosxorden(idorden,version,idclase,unidad,valor,costo,puntos) SELECT $lastot,$OT_VER_GENERADA,idclase,unidad,valor,costo,puntos FROM preciosxpresupuesto WHERE idpresupuesto=$idpp");
+		if($ds_pp=='NOEXISTE'){
+        		db_query("UPDATE ordenes SET ds = '$ds_vb' WHERE id=$lastot");
+        		}
+
+		calcularOrden($lastot,$OT_VER_GENERADA);
+		setRefreshUrl("?menu=".getMenu()."&amp;mode=edit&amp;id=".encrypt($lastot));
+		printAndStay("Actualizando base de datos, por favor espere..<br />Se guardo la Orden de Trabajo $numero","ok");
+	}
+} else {
+	printAndStay("No se puede crear la OT debido a que ya existe una con la viabilidad VB-".padZeroLeft($idvb,8)." asignada!","error");
+}
+}
+break;
+ case 'clone':
+	$id=getVal($_GET['id'],"0");//
+	$id=mysqli_real_escape_string($dbsgp,$id);//KIUWAN
+	if($id > 0){
+		
+		$sql = "INSERT INTO ordenes (`numero`,`fecha_solicitud`,`idestadoot`,`idsegmento`,`idtipoot`,`fecha_requerida`,`idcontrato`,`idzona`,`iddepto`,`idlocalidad`,`idtipored`,
+			`nombre`,`direccion`,`idpresupuesto`,`ds`,`epro`,`trs`,`idclaseproyecto`,`idtipoproyecto`,`idpep`,`notas_ing`,`notas`,`ideecc`,`eeccxresponsable`,`resp_movistar`,`resp_eecc`,
+			`idcluster`,`idsubcluster`,`hh_pasados`,`idmes`,`iddistribuidor`,`armario`,`cable`,`idpop`,`parprim`,`parsec`,`parkm`,`kmfibra`,`mtsducto`,`idvelmaxba`,`distarm`,`iddistcaja`,
+			`viviendas`,`torres`,`bocas`,`verticales`,latitud,longitud,atrib_dist,atrib_arm,`create_user`,`modify_user`)SELECT '0',CURRENT_DATE,$OT_ST_ENCREACION,`idsegmento`,`idtipoot`,
+			DATE_ADD(CURRENT_DATE,INTERVAL DATEDIFF(`fecha_requerida`,`fecha_solicitud`) DAY),`idcontrato`,`idzona`,`iddepto`,`idlocalidad`,`idtipored`,`nombre`,`direccion`,`idpresupuesto`,`ds`,`epro`,`trs`,`idclaseproyecto`,`idtipoproyecto`,idpep,`notas_ing`,'Orden Iniciada',`ideecc`,`eeccxresponsable`,`resp_movistar`,`resp_eecc`,`idcluster`,`idsubcluster`,`hh_pasados`,`idmes`,`iddistribuidor`,`armario`,`cable`,`idpop`,`parprim`,`parsec`,`parkm`,`kmfibra`,`mtsducto`,`idvelmaxba`,`distarm`,`iddistcaja`,`viviendas`,`torres`,`bocas`,`verticales`,latitud,longitud,atrib_dist,atrib_arm,$appuser->uid,$appuser->uid
+	  FROM ordenes  WHERE idestadoot>$OT_ST_ENCREACION AND `id` = $id";
+	
+		if(db_query($sql) > 0){
+
+			$lastot = getLastId();
+			$lastcrono = getSQLValue("SELECT IFNULL(id,0) FROM cronograma WHERE idorden=$id AND version=$OT_VER_GENERADA");
+			db_query("INSERT INTO cronograma(idorden,version) VALUES($lastot,$OT_VER_GENERADA)");
+			$newcrono = getLastId();
+
+			db_query("INSERT INTO tareas(idcrono,idtipo,duracion,antecesor) SELECT $newcrono,t.idtipo,t.duracion,t.antecesor FROM tareas t, cronograma c WHERE t.idcrono=c.id AND c.idorden=$id AND c.version=$OT_VER_GENERADA");
+			$lastminid = getSQLValue("SELECT MIN(id) FROM tareas WHERE idcrono=$lastcrono");
+			$newminid = getSQLValue("SELECT MIN(id) FROM tareas WHERE idcrono=$newcrono");
+			db_query("UPDATE tareas SET antecesor = $newminid + (antecesor - $lastminid) WHERE idcrono=$newcrono AND antecesor IS NOT NULL");
+			$numero = "OT-".padZeroLeft($lastot,8);
+			db_query("UPDATE `ordenes` SET numero='$numero' WHERE id=$lastot");
+			db_query("INSERT INTO inventario(id_orden,numero_orden,departamento,distribuidor,armario,latitud,longitud,atrib_dist,atrib_arm,usuario,estado) SELECT id, numero,iddepto, iddistribuidor, armario, latitud, longitud, atrib_dist,atrib_arm, create_user,$OT_ST_ENCREACION FROM ordenes WHERE id=$lastot");
+
+			db_query("INSERT INTO materialesxorden
+					 (`idorden`,`version`,`idbaremo`,`idmaterial`,`factor`,`unidad`,`valor`,`cantidad`,`movistar`,`parkm`,`mtsducto`,`puntoa`,`puntob`,`v1`,`v2`,`v3`,`v4`,`v5`,`v6`,`empalmes`)
+					SELECT  $lastot,$OT_VER_GENERADA,`idbaremo`,`idmaterial`,`factor`,`unidad`,`valor`,`cantidad`,`movistar`,`parkm`,`mtsducto`,`puntoa`,`puntob`,`v1`,`v2`,`v3`,`v4`,`v5`,`v6`,`empalmes`
+					FROM materialesxorden WHERE idorden=$id AND version=$OT_VER_GENERADA");
+			db_query("INSERT INTO retalxorden
+					 (`idorden`,`version`,`idbaremo`,`idmaterial`,`factor`,`unidad`,`valor`,`cantidad`,`movistar`,`parkm`,`mtsducto`,`puntoa`,`puntob`,`v1`,`v2`,`v3`,`v4`,`v5`,`v6`,`empalmes`)
+					SELECT  $lastot,$OT_VER_GENERADA,`idbaremo`,`idmaterial`,`factor`,`unidad`,`valor`,`cantidad`,`movistar`,`parkm`,`mtsducto`,`puntoa`,`puntob`,`v1`,`v2`,`v3`,`v4`,`v5`,`v6`,`empalmes`
+					FROM retalxorden WHERE idorden=$id AND version=$OT_VER_GENERADA");
+			db_query("INSERT INTO actividadesxorden (`idorden`,`version`,`idbaremo`,`puntos`,`material`,`cantidad`,`suplemento`,`mtsducto`,`pares`,`empalmes`,`depende`)
+					SELECT $lastot,$OT_VER_GENERADA,`idbaremo`,`puntos`,`material`,`cantidad`,`suplemento`,`mtsducto`,`pares`,`empalmes`,IF(depende IS NOT NULL AND depende!='',CONCAT('$lastot','-','$OT_VER_GENERADA','-',SUBSTRING_INDEX(depende,'-',-1)),'')
+					FROM actividadesxorden WHERE idorden=$id AND version=$OT_VER_GENERADA");
+
+			db_query("INSERT INTO totalesxorden(idorden,version,fdepto,cdirecto,claseh,costoaiu,utilidadp,utilidad,ivap,iva,tpb,tmo,tca,tma,totros,tpry) SELECT $lastot,$OT_VER_GENERADA,fdepto,cdirecto,claseh,costoaiu,utilidadp,utilidad,ivap,iva,tpb,tmo,tca,tma,totros,tpry FROM totalesxorden WHERE idorden=$id AND version=$OT_VER_GENERADA");
+
+			db_query("INSERT INTO preciosxorden(idorden,version,idclase,unidad,valor,costo,puntos) SELECT $lastot,$OT_VER_GENERADA,idclase,unidad,valor,costo,puntos FROM preciosxorden WHERE idorden=$id AND version=$OT_VER_GENERADA");
+
+			calcularOrden($lastot,$OT_VER_GENERADA);
+			setRefreshUrl("?menu=".getMenu()."&amp;mode=edit&amp;id=".encrypt($lastot));
+			printAndStay("Actualizando base de datos, por favor espere..<br />Se guardo la Orden de Trabajo $numero","ok");
+		}
+	}
+	break;
+case 'save':
+	$txtMake = getPostNum('txtMake');
+	$txtId = getPostNum('txtId');
+if($txtMake == "100"){
+	$txtRespMovistar = getPostNum('txtRespMovistar');
+	$txtRespEECC = getPostNum('txtRespEECC');
+
+	$mtsducto = getMtsDucto($txtId,$OT_VER_GENERADA);
+	$parkm = getParKM($txtId,$OT_VER_GENERADA);
+	$kmfibra = getKmFibra($txtId,$OT_VER_GENERADA);
+
+	//- Cambiar de estado a la orden
+	db_query("UPDATE ordenes SET parkm=$parkm,kmfibra=$kmfibra,mtsducto=$mtsducto,`idestadoot`=$OT_ST_CONORDENDETRABAJO,notas='Orden Creada' WHERE id=$txtId");
+	db_query("UPDATE inventario SET estado=$OT_ST_CONORDENDETRABAJO WHERE id_orden=$txtId");
+
+	//-> Asignar bandejas OT
+	db_query("INSERT IGNORE INTO bandejasot(idorden, idgrupo) SELECT $txtId,g.id FROM usuarios u, grupos g WHERE u.id=$txtRespEECC AND u.idgrupo=g.id LIMIT 1");
+	db_query("INSERT IGNORE INTO bandejasot(idorden, idgrupo) SELECT $txtId,g.id FROM usuarios u, grupos g WHERE u.id=$txtRespMovistar AND u.idgrupo=g.id LIMIT 1");
+
+    //Insertar a Registro de Red
+
+    $sql = "SELECT idtipoot FROM ordenes WHERE id=$txtId";
+	$query =  db_query($sql,true);
+	$row = mysqli_fetch_array($query);
+    if (count($row)>0) {
+		if($row['idtipoot'] == '1' OR $row['idtipoot'] == '3')  {
+            db_query("INSERT IGNORE INTO bandejasot(idorden, idgrupo) VALUES ($txtId,7)");
+        }
+    }
+
+    if($txtTipoOt == '1' OR $txtTipoOt == '3')  {
+        db_query("INSERT IGNORE INTO bandejasot(idorden, idgrupo) VALUES ($txtId,7)");
+    }
+    //<-
+	//Ingresar los materiales a pedidos
+	//<<<<<Movistar solicito retirar la creacion de pedidos>>>>>
+	/*
+	$fp = getTaskEnd($txtId,$TAREA_ENTREGAMATERIALES) - 1;
+	$sql = "INSERT INTO pedidosxorden(numero,idorden,idmaterial,idestadoped,cantidad,fecha_programada,notas,create_user) SELECT '0',idorden,idmaterial,$PED_ST_PENDIENTE,cantidad,DATE_ADD(CURRENT_DATE,INTERVAL $fp DAY),'Pedido Creado',$appuser->uid FROM materialesxorden WHERE movistar > 0 AND idorden=$txtId";
+	db_query($sql);
+	db_query("UPDATE pedidosxorden SET numero=CONCAT('PE-',LPAD(id,8,'0')) WHERE numero ='0'");
+	//Asignar bandejas para pedidos
+	db_query("INSERT INTO bandejasped(idpedido, idgrupo) SELECT id,$GRP_INGENIERIA FROM pedidosxorden WHERE idorden=$txtId");
+	db_query("INSERT INTO bandejasped(idpedido, idgrupo) SELECT id,$GRP_GESTOR_OTS FROM pedidosxorden WHERE idorden=$txtId");
+	db_query("INSERT INTO bandejasped(idpedido, idgrupo) SELECT id,$GRP_SOPORTE_TECNICO FROM pedidosxorden WHERE idorden=$txtId");
+	*/
+	//<-
+	//-> Cambiar estado a la viabilidad
+	db_query("UPDATE viabilidades SET idorden=$txtId,notas='Orden Creada',idestadovb=$VB_ST_EJECUCION,modify_user=$appuser->uid WHERE id=(SELECT idviabilidad FROM ordenes WHERE id=$txtId)");
+	//<-
+
+  setRefreshUrl("?menu=$MENU_OT_TRAY&amp;mode=edit&amp;id=".encrypt($txtId));
+	printAndStay("Actualizando base de datos, por favor espere..<br />Se guardo la Orden de Trabajo","ok");
+
+} else {
+	$txtEstado = $OT_ST_ENCREACION;
+	$txtSegmento = getPostNum('txtSegmento');
+	$txtTipoOT = getPostNum('txtTipoOT');
+	$txtContrato = getPostNum('txtContrato');
+	$txtResponsable = getPostNum('txtResponsable');
+	$txtTipoRed = getPostNum('txtTipoRed');
+	$txtZona = getPostNum('txtZona');
+	$txtDepto = getPostNum('txtDepto');
+	$txtLocalidad = getPostNum('txtLocalidad');
+	$txtNombre = getPostStr('txtNombre');
+	$txtDireccion = getPostStr('txtDireccion');
+	$txtViabilidad = getPostStr('txtViabilidad');
+	$txtDs = getPostStr('txtDs');
+	$txtEpro = getPostStr('txtEpro');
+	$txtTrs = getPostStr('txtTrs');
+	$txtClase = getPostNum('txtClase');
+	$txtTipo = getPostNum('txtTipo');
+	$txtPEP = getPostNum('txtPEP');
+	$txtRespMovistar = getPostNum('txtRespMovistar');
+	$txtRespEECC = getPostNum('txtRespEECC');
+
+	//Desarrollo andres
+
+	$txtidcluster = getPostNum('txtidcluster');
+	$txtidsubcluster = getPostNum('txtidsubcluster');
+	$txthh_pasados = getPostNum('txthh_pasados');
+	$txtidmes = getPostNum('txtidmes');
+	// Desc Christian
+	$txttvivienda = getPostNum('txttvivienda');
+
+
+	$txtObs = getPostStr('txtObs');
+	$txtDistribuidor = getPostNum('txtDistribuidor');
+	$txtPOP = getPostNum('txtPOP');
+	$txtArmario = getPostStr('txtArmario');
+	$txtCable = getPostStr('txtCable');
+	$txtPares1 = getPostStr('txtPares1');
+	$txtPares2 = getPostStr('txtPares2');
+	$txtVelMax = getPostStr('txtVelMax');
+	$txtDist2 = getPostStr('txtDist2');
+	$txtDist1 = getPostStr('txtDist1');
+	$txtVivienda = getPostStr('txtVivienda');
+	$txtTorres = getPostStr('txtTorres');
+	$txtBocas = getPostStr('txtBocas');
+	$txtVerticales = getPostStr('txtVerticales');
+	$txtLatitud= getPostStr('txtLatitud');
+	$txtLongitud= getPostStr('txtLongitud');
+	$CheckAtriArm = getPostStr('checkArm');
+	$CheckAtriDist = getPostStr('checkDist');
+
+	//Desarrollo JKM
+	$txtCableOrd = getPostNum('txtCableOrd');
+	$txtcentral = getPostNum('txtcentral');
+	$txtConversor= getPostStr('txtConversor');
+	$txtregion = getPostNum('txtregion');
+	$txtcomuna = getPostNum('txtcomuna');
+	$txtpoligono = getPostNum('txtpoligono');
+	$txtcluster = getPostNum('txtcluster');
+	$txtsubcluster= getPostStr('txtsubcluster');
+	$txthogarespas = getPostNum('txthogarespas');
+	$txttipozona = getPostNum('txttipozona');
+	$txtcluster = getPostNum('txtcluster');
+	
+
+	if(hasVal($txtTipoOT)&&hasVal($txtSegmento)){
+		$uid = $appuser->uid;
+		$sql_ins = db_query("UPDATE ordenes o LEFT JOIN viabilidades v on o.idviabilidad=v.id
+SET o.idsegmento=$txtSegmento,o.idtipoot=$txtTipoOT,o.idcontrato=$txtContrato,o.eeccxresponsable=$txtResponsable,
+o.idzona=$txtZona,o.iddepto=$txtDepto,o.idlocalidad=$txtLocalidad,o.idtipored=$txtTipoRed,o.nombre=$txtNombre,
+o.direccion=$txtDireccion,o.ds=$txtDs,o.epro=$txtEpro,o.trs=$txtTrs,o.idclaseproyecto=$txtClase,o.idtipoproyecto=$txtTipo,
+o.idpep=$txtPEP,o.resp_movistar=$txtRespMovistar,o.resp_eecc=$txtRespEECC,o.idcluster=$txtidcluster,o.idsubcluster=$txtidsubcluster,
+o.hh_pasados=$txthh_pasados,o.idmes=$txtidmes,o.iddistribuidor=$txtDistribuidor,o.idpop=$txtPOP,o.armario=$txtArmario,o.cable=$txtCable,
+o.parprim=$txtPares1,o.parsec=$txtPares2,o.idvelmaxba=$txtVelMax,o.distarm=$txtDist1,o.iddistcaja=$txtDist2,o.viviendas=$txtVivienda,
+o.torres=$txtTorres,o.bocas=$txtBocas,o.verticales=$txtVerticales,o.notas_ing=$txtObs,o.latitud=$txtLatitud,o.longitud=$txtLongitud,
+o.atrib_dist=$CheckAtriDist,o.atrib_arm=$CheckAtriArm,v.total_viviendas=$txttvivienda ,
+
+o.sub_cluster=$txtsubcluster,o.idcentral=$txtcentral,o.idregion=$txtregion,o.idpoligono=$txtpoligono,o.id_cluster=$txtcluster,
+o.idcomuna=$txtcomuna,o.idtipozona=$txttipozona,o.idcable=$txtCableOrd,o.conversor=$txtConversor
+
+WHERE o.id=$txtId");
+		if($sql_ins > 0){
+			calcularOrden($txtId,$OT_VER_GENERADA);
+			db_query("UPDATE inventario SET departamento=$txtDepto,distribuidor=$txtDistribuidor,armario=$txtArmario,latitud=$txtLatitud,longitud=$txtLongitud,atrib_dist=$CheckAtriDist,atrib_arm=$CheckAtriArm, estado=$txtEstado WHERE id_orden=$txtId");
+		}
+		setRefreshUrl("?menu=".getMenu()."&amp;mode=edit&amp;id=".encrypt($txtId));
+
+		printAndStay("Actualizando base de datos, por favor espere..<br />Se guardo la Orden numero $numero","ok");
+	}
+	else {
+	 printMessage("No ha completado los campos obligatorios...","error");
+	}
+}
+break;
+ case 'edit':
+//echo $_SESSION['token_prueba'];
+	$id=decrypt(getVal($_GET['id']));//
+	$id=mysqli_real_escape_string($dbsgp,$id);//KIUWAN
+	$userfilter = (!$appuser->isAdmin())?"AND o.create_user=$appuser->uid ":"";
+	$r =  db_query("SELECT o.*,p.mo pep_mo,p.cable pep_cable,p.otros pep_otros FROM `ordenes` o LEFT JOIN peps p ON o.idpep=p.id WHERE o.idestadoot=$OT_ST_ENCREACION AND o.`id` = '$id' $userfilter");
+	$row = mysqli_fetch_array($r);
+	if (count($row)>0) {
+
+		$estadoot = "En Creacion";
+		$numero = $row['numero'];
+		$nombre_usuario = getNameById("usuarios",$row['create_user']);
+		$tel_usuario = getNameById("usuarios",$row['create_user'],"telefono");
+
+		$fecha_solicitud = $row['fecha_solicitud'];
+		$fecha_requerida = $row['fecha_requerida'];
+
+		$idsegmento = $row['idsegmento'];
+		$idtipoot = $row['idtipoot'];
+		$idcontrato = $row['idcontrato'];
+		$ideecc = $row['ideecc'];
+		$idresponsable = 'jhon';//$row['eeccxresponsable'];
+		$idtipored = $row['idtipored'];
+
+		$idzona = $row['idzona'];
+		$iddepto = $row['iddepto'];
+		$idlocalidad = $row['idlocalidad'];
+		$idviabilidad= getNameById("viabilidades",$row['idviabilidad'],"numero");
+
+		$nombre = $row['nombre'];
+		$direccion = $row['direccion'];
+		$ds = $row['ds'];
+		$epro = $row['epro'];
+		$trs = $row['trs'];
+
+		$idclaseproyecto = $row['idclaseproyecto'];
+		$idtipoproyecto = $row['idtipoproyecto'];
+		$idpep = $row['idpep'];
+		$pep_mo=$row['pep_mo'];
+		$pep_cable=$row['pep_cable'];
+		$pep_otros=$row['pep_otros'];
+		$notas_ing = $row['notas_ing'];
+		$resp_movistar = $row['resp_movistar'];
+		$resp_eecc = $row['resp_eecc'];
+
+		$idcluster = $row['idcluster'];
+		$idsubcluster = $row['idsubcluster'];
+		$hh_pasados = $row['hh_pasados'];
+		$idmes = $row['idmes'];
+
+		$iddistribuidor = $row['iddistribuidor'];
+		$idpop = $row['idpop'];
+		$armario = $row['armario'];
+		$cable = $row['cable'];
+		$parprim = $row['parprim'];
+		$parsec = $row['parsec'];
+		$parkm = $row['parkm'];
+		$kmfibra = $row['kmfibra '];
+		$mtsducto = $row['mtsducto'];
+		$idvelmaxba = $row['idvelmaxba'];
+		$distarm = $row['distarm'];
+		$iddistcaja = $row['iddistcaja'];
+		$viviendas = $row['viviendas'];
+		$torres = $row['torres'];
+		$bocas = $row['bocas'];
+		$verticales = $row['bocas'];
+		$latitud = $row['latitud'];
+		$longitud = $row['longitud'];
+		$AtribDist = $row['atrib_dist'];
+		$AtribArm = $row['atrib_arm'];
+
+		$mtsducto = getMtsDucto($id,$OT_VER_GENERADA);
+		$parkm = getParKM($id,$OT_VER_GENERADA);
+		$kmfibra = getKmFibra($id,$OT_VER_GENERADA);
+
+		$disabled = "disabled='disabled'";
+        $created = $row['create_date'];
+        $modified = isset($row['modify_date'])?$row['modify_date']:'Nunca';
+		//Desarrollo JKM
+
+		$txtTipoRed = $row['idtipored'];
+		$txtTipoOT = $row['txtClase'];
+		$idcable =$row['idcable'];
+		$idcentral = $row['idcentral'];
+		$idcluster = $row['id_cluster'];
+		$sub_cluster = $row['sub_cluster'];
+		$idregion = $row['idregion'];
+		$idpoligono = $row['idpoligono'];
+		$idcomuna = $row['idcomuna'];
+		$idtipozona = $row['idtipozona'];
+		$Hogares_pasados = $row['hh_pasados'];
+		$conversor = $row['conversor'];
+
+		$validacionftth = 1;
+		if (strpos($txtTipo, 'ftth') !== false and $txtTipoRed == 2 and $txtTipoOT == 2 ) {
+			$completedftth = (hasVal($idregion)&&hasVal($idpoligono)&&hasVal($idcomuna)&&
+			hasVal($idtipozona)&&hasVal($idcentral)&&hasVal($idcluster));
+
+			if(!$completedftth){
+				$validacionftth = false;
+			}
+
+		}
+
+		$completed = hasVal($idsegmento)&&hasVal($idtipoot)&&hasVal($fecha_requerida)&&
+			hasVal($idcontrato)&&hasVal($idzona)&&hasVal($iddepto)&&
+			hasVal($idlocalidad)&&hasVal($idtipored)&&hasVal($nombre)&&
+			hasVal($direccion)&&hasVal($idclaseproyecto)&&hasVal($idtipoproyecto)&&
+			hasVal($resp_movistar)&&hasVal($resp_eecc)&&hasVal($idpep)&&hasVal($validacionftth);
+
+
+		if($completed){
+			$vtotalproy = getSQLValue("SELECT IFNULL(tpry,0) FROM totalesxorden WHERE idorden=$id AND version=$OT_VER_GENERADA");
+			switch($idtipored){
+				case $OT_TIPO_RED_COBRE:
+					$completed = hasVal($cable)&& strlen($parprim)&&
+						strlen($parsec)&&hasVal($parkm)&&
+						hasVal($idpop)&&hasVal($idvelmaxba)&&
+						strlen($distarm)>0&&hasVal($iddistcaja)&&
+						strlen($viviendas)>0&&hasVal($iddistribuidor);
+					break;
+				case $OT_TIPO_RED_FIBRA:
+					$completed = hasVal($kmfibra)&&hasVal($idpop);
+					break;
+				case $OT_TIPO_RED_TV:
+					$completed = strlen($viviendas)>0&& strlen($torres)>0&&
+						hasVal($bocas)&&hasVal($verticales);
+					break;
+			}
+		}
+ ?>
+ <div class="section">
+	<div class="info">
+	 <div class="formpage">
+		<div class="outerbox">
+			<div class="mainHeading"><h2>Ver Orden de Trabajo 'En Creacion'</h2></div>
+			 <div class="messagebar">
+                <span id="message" class="error"></span>
+            </div>
+			<form name="frmSubmit" id="frmSubmit" method="post" action="?menu=<?php echo getMenu();?>&amp;mode=save">
+				<input type="hidden" id="txtId" name="txtId" value="<?php echo $id?>"/>
+				<input type="hidden" id="txtMake" name="txtMake" value=""/>
+				<input type="hidden" id="txtChanged" name="txtChanged" value="NO"/>
+				<?php include_once "parts/ot/sec.header.inc.php"; ?>
+				<script type="text/javascript">
+				$(function() {
+					$( "#tabs" ).tabs({
+						cache:true,
+						beforeLoad: function(event, ui) {
+							ui.panel.html(getSpinner());
+						},
+						select: function(event, ui) {
+							var idx = $(this).tabs('option', 'selected');
+							if(idx === 0 && $("#txtChanged").val()=="SI"){
+								if(!confirm('Si ha realizado cambios de datos debe guardarlos, desea salir?')){
+									return false;
+								}
+							}
+							return true;
+						}
+						<?php if(strlen($_GET['tab'])>0)echo ",active:".htmlspecialchars($_GET[tab]).""; ?>
+					});
+				});
+				</script>
+				<div id="tabs">
+					<ul>
+						<li><a href="#tabs-1">Orden</a></li>
+						<li><a href="parts/ot/tab.totales.ro.inc.php?id=<?php echo encrypt($id); ?>&amp;ver=<?php echo encrypt($OT_VER_GENERADA); ?>"><span>Total Baremos</span></a></li>
+						<li><a href="#tabs-3">Actividades Baremos</a></li>
+						<li><a href="parts/ot/tab.materiales.ro.inc.php?id=<?php echo encrypt($id); ?>&amp;ver=<?php echo encrypt($OT_VER_GENERADA)?>"><span>Materiales</span></a></li>
+						<li><a href="parts/ot/tab.retal.rx.inc.php?id=<?php echo encrypt($id); ?>&amp;ver=<?php echo encrypt($OT_VER_GENERADA)?>"><span>Retal</span></a></li>
+						<li><a href="#tabs-5">Cronograma</a></li>
+						<li><a href="#tabs-6">Adjuntos</a></li>
+					</ul>
+					<div id="tabs-1" style="display: none;">
+						<?php include_once "parts/ot/tab.orden.rw.inc.php"; ?>
+					</div>
+					<div id="tabs-3" style="display: none;">
+						<?php include_once "parts/ot/tab.baremos.rw.inc.php"; ?>
+					</div>
+					<div id="tabs-5" style="display: none;">
+						<?php include_once "parts/ot/tab.cronograma.rw.inc.php"; ?>
+						<div id="ganttChart"></div>
+						<br /><br />
+						<div id="eventMessage"></div>
+					</div>
+					<div id="tabs-6" style="display: none;">
+						<?php include_once "parts/ot/tab.adjuntos.rw.inc.php"; ?>
+					</div>
+				</div>
+				<br class="clear"/>
+				<div class="formbuttons">
+					<?php
+					if($appuser->isInRole("$GENERAR_OT_CAPEX,$GENERAR_OT_OPEX")){
+						if($completed){
+							if($vtotalproy > 0){ ?>
+								<button onclick="makeOrden('<?php echo $fecha_requerida?>')" >Generar Orden De Trabajo</button>
+					<?php
+						} else {
+							echo "<span id='message' class='msg-box note'>Para generar la Orden de Trabajo debe ingresar algunas actividades.</span>";
+						}
+					} else  echo "<span id='message' class='msg-box note'>Complete los campos obligatorios para poder generar la Orden.</span>";
+					}?>
+				</div>
+			</form>
+		</div>
+		<div class="requirednotice">Los campos marcados con asterisco <span class="required">*</span> son obligatorios.</div>
+	</div>
+	</div>
+ </div>
+<?php
+	 }
+ break;
+case 'new':
+$numero = "Auto-Generado";
+$estadoot = "En Creacion";
+$fecha_solicitud = date("Y-m-d");
+$fecha_requerida = "Calculado";
+$nombre_usuario = $appuser->nombre;
+$tel_usuario = $appuser->telefono;
+?>
+ <div class="section">
+	<div class="info">
+	 <div class="formpage">
+		<div class="outerbox">
+			<div class="mainHeading"><h2>Adicionar Orden</h2></div>
+				<form name="frmSubmit" id="frmSubmit" method="post" action="?menu=<?php echo getMenu();?>&amp;mode=save">
+				<script type="text/javascript">
+				$(function() {
+					$( "#tabs" ).tabs({
+						cache:true,
+						beforeLoad: function(event, ui) {
+								ui.panel.html(getSpinner());
+						},
+						create: function(event, ui) {
+							$('#tabs').show();
+						}
+					});
+				});
+				</script>
+				<?php include_once "parts/ot/sec.header.inc.php"; ?>
+				<div id="tabs" style="display: none;">
+					<ul>
+						<li><a href="parts/ot/tab.orden.rw.inc.php?id=<?php echo $id; ?>"><span>Orden</span></a></li>
+					</ul>
+				</div>
+				</form>
+		</div>
+	</div>
+	</div>
+ </div>
+ <?php
+ break;
+ default:
+	$sort=getVal($_GET['sort'],"0");
+	$order=getVal($_GET['order'],"null");
+	$pageNO=getVal($_POST['pageNO'],"1");//
+	$pageNO=mysqli_real_escape_string($dbsgp,$pageNO);//KIUWAN
+	$rowsxPage=100;
+	if($_POST['delState']){
+		$del = $_POST['chkLocID'];//
+		$del=mysqli_real_escape_string($dbsgp,$del);//KIUWAN
+		$n = count($del);
+		for ($i=0; $i < $n; $i++){
+			switch($_POST['delState']){
+				case 'DeleteMode':
+					db_query("DELETE FROM `actividadesxorden` WHERE idorden={$del[$i]}");
+					db_query("DELETE FROM `adjuntosot` WHERE idorden={$del[$i]}");
+					db_query("DELETE FROM `adjuntosreg` WHERE idorden={$del[$i]}");
+					db_query("DELETE FROM `bandejasot` WHERE idorden={$del[$i]}");
+					db_query("DELETE FROM `tareas` WHERE id IN (SELECT * FROM (SELECT p.id FROM tareas p, cronograma c WHERE p.idcrono=c.id AND c.idorden={$del[$i]}) del)");
+					db_query("DELETE FROM `cronograma` WHERE idorden={$del[$i]}");
+					db_query("DELETE FROM `materialesxorden` WHERE idorden={$del[$i]}");
+					db_query("DELETE FROM `preciosxorden` WHERE idorden={$del[$i]}");
+					db_query("DELETE FROM `retalxorden` WHERE idorden={$del[$i]}");
+					db_query("DELETE FROM `seguimientoot` WHERE idorden={$del[$i]}");
+					db_query("DELETE FROM `totalesxorden` WHERE idorden={$del[$i]}");
+					db_query("UPDATE `viabilidades` SET idorden=NULL WHERE idorden={$del[$i]}");
+					db_query("DELETE FROM `ordenes` WHERE id={$del[$i]}");
+					break;
+				/*case 'EnableMode':
+					$sql_update = db_query("UPDATE `presupuesto` SET `active`='Si' WHERE id={$del[$i]}");
+					break;
+				case 'DisableMode':
+					$sql_update = db_query("UPDATE `presupuesto` SET `active`='No' WHERE id={$del[$i]}");
+					break;*/
+			}
+		}
+		printMessage("Actualizando base de datos, por favor espere..","ok");
+	} else {
+		$userfilter = (!$appuser->isAdmin())?"AND o.create_user=$appuser->uid ":"";
+	//Modificacion Export JKM
+	//Columna Cluster Y TipoZona  JKM - 07/04/2022
+		$sql = "SELECT o.id,o.numero,o.fecha_solicitud,o.fecha_requerida,o.nombre,o.active,eo.nombre estado,tot.nombre req,ee.nombre eecc,z.nombre zona,
+		d.nombre depto,l.nombre localidad,tr.nombre red,cp.nombre proyecto,tp.tmo,tp.tma,IF(o.fecha_requerida BETWEEN DATE_SUB(current_timestamp,INTERVAL 2 DAY)
+		AND CURRENT_TIMESTAMP,'amarillo',IF(CURRENT_TIMESTAMP > o.fecha_requerida,'rojo','verde')) alerta,c.nombre central,r.nombre region ,pol.nombre poligono,com.nombre Municipio,
+		clu.nombre cluster_FTTH,o.sub_cluster sub_cluster,tz.nombre tipo_zona,o.conversor coinversor,o.hh_pasados hogares_pasados,o.idcable cable
+		FROM ordenes o LEFT JOIN eecc ee ON o.ideecc=ee.id
+		LEFT JOIN zonas z ON o.idzona=z.id
+		LEFT JOIN deptos d ON o.iddepto=d.id
+		LEFT JOIN localidades l ON o.idlocalidad=l.id
+		LEFT JOIN tipored tr ON o.idtipored=tr.id
+		LEFT JOIN claseproyecto cp ON o.idclaseproyecto=cp.id
+		LEFT JOIN central c ON c.id = o.idcentral
+		LEFT JOIN region r ON r.id = o.idregion
+		LEFT JOIN comuna com ON com.id = o.idcomuna
+		LEFT JOIN poligono pol ON pol.id = o.idpoligono
+		LEFT JOIN cluster clu ON clu.id = o.idcluster
+		LEFT JOIN tipozona tz ON tz.id=o.idtipozona
+		LEFT JOIN totalesxorden tp ON (tp.idorden=o.id AND tp.version=$OT_VER_GENERADA),tipoot tot,estadoot eo
+		WHERE o.idtipoot=tot.id $userfilter AND o.idestadoot = $OT_ST_ENCREACION AND o.fecha_solicitud>='2017-03-01' AND o.idestadoot=eo.id".getAllSQLFilters().getSQLSort("o.fecha_solicitud","DESC");
+		$q = db_query($sql);
+		$regCount = mysqli_num_rows($q);
+
+
+		$maxPage = ceil($regCount/$rowsxPage);
+		$rowFrom = (($pageNO-1) * $rowsxPage);
+		$fields = array("o.numero"=>"Numero","o.fecha_solicitud"=>"Solicitada","o.fecha_requerida"=>"Requerida","eo.nombre"=>"Estado","ee.nombre"=>"EECC","z.nombre"=>"Zona","d.nombre"=>"Depto","l.nombre"=>"Localidad","tot.nombre"=>"Tipo","o.nombre"=>"Nombre","tr.nombre"=>"TipoRed","cp.nombre"=>"Proyecto","tp.tmo"=>"Total MO","tp.tma"=>" Total MA");
+		$hash = getRandomString();
+		setReport($hash,"Ordenes",$sql);
+?>
+<div class="section">
+	<div class="info">
+	 <div class="outerbox">
+		<div class="mainHeading"><h2>Ordenes 'En Creacion'</h2></div>
+		<form name="frmSubmit" id="frmSubmit" method="post" action="?menu=<?php echo getMenu();?>&amp;sort=<?php echo $sort;?>&amp;order=<?php echo $order;?>">
+		<input type="hidden" name="captureState" value="" />
+		<input type="hidden" name="delState" value="" />
+		<input type="hidden" name="pageNO" value="<?php echo $pageNO;?>" />
+
+		<div class="searchbox">
+			<?php printActionButtonBar(array('delete'=>'returnDelete();'))?>
+			<button type="button" onclick="returnFilter();">Buscar</button>
+			<button type="button" onclick="clearFilter();">Limpiar</button>
+			<button type="button" onclick="exportXLS('<?php echo $hash; ?>');">Exportar</button>
+		</div>
+
+		<div class="actionbar">
+			<div class="actionbuttons">
+			</div>
+			<div class="noresultsbar"><?php echo htmlspecialchars($regCount)==0?"No hay registros para mostrar!":""?></div>
+			<div class="pagingbar">
+				<?php paginate($maxPage, $pageNO, $regCount);?>
+			</div>
+			<br class="clear" />
+		</div>
+		<br class="clear" />
+		<div id="Layer1" style="width:100%;height:auto;overflow-x:scroll;">
+		<table cellspacing="0" cellpadding="0" class="data-table">
+			<thead>
+			<?php printFilterGrid($fields)?>
+			<tr>
+				<td width="20">
+					<input type="checkbox" name="allCheck" id="allCheck" class="checkbox" style="margin-left:1px" onclick="doHandleAll()" />
+				</td>
+				<?php printColumns($fields);?>
+				</tr>
+			</thead>
+			<tbody>
+<?php
+				$query = db_query("$sql LIMIT $rowFrom, $rowsxPage");
+				//echo "$sql LIMIT $rowFrom, $rowsxPage";
+				$i=0;
+				while($row = mysqli_fetch_array($query)) {
+					$style = $row['active']=='Si'?($i++%2==0)?"odd":"even":"disabled";
+					echo "<tr class=\"$style\">\n";
+					echo "<td ><input type=\"checkbox\" class=\"checkbox\" name=\"chkLocID[]\" value=\"".htmlspecialchars($row['id'])."\" onclick=\"unCheckMain();\" /></td>\n";
+					if($row['idesatdovb']!=9){
+						echo "<td><a href=\"?menu=".getMenu()."&amp;mode=edit&amp;id=".encrypt(htmlspecialchars($row['id']))."\">".htmlspecialchars($row['numero'])."</a></td>\n";
+					} else{
+						echo "<td>".htmlspecialchars($row['numero'])."</td>\n";
+					}
+					echo "<td>".htmlspecialchars($row['fecha_solicitud'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['fecha_requerida'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['estado'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['eecc'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['zona'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['depto'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['localidad'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['req'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['nombre'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['red'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['proyecto'])."</td>\n";
+					echo "<td style='text-align:right'>$".number_format(htmlspecialchars($row['tmo'],2))."</td>\n";
+					echo "<td style='text-align:right'>$".number_format(htmlspecialchars($row['tma'],2))."</td>\n";
+					echo "</tr>\n";
+				}
+?>
+			</tbody>
+		</table>
+		</div>
+	</form>
+</div>
+</div>
+</div>
+<?php
+	} //else end
+} // end switch
+//------------------------------------------------------------------------------------------
+?>

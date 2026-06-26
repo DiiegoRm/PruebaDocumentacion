@@ -1,0 +1,206 @@
+
+<?php
+ob_start();
+
+switch($_REQUEST["mode"]){
+ case 'show':
+	$id=decrypt(getVal($_GET['id'],"0"));
+	$id=mysqli_real_escape_string($dbsgp,$id);//KIUWAN
+	$r =  db_query("SELECT o.idestadoot,o.idcontrato,o.numero,o.fecha_solicitud,fecha_requerida,e.nombre estado,u.nombre creador,u.telefono,s.nombre segmento, o.iddepto, o.ideecc, o.idtipored 
+		FROM ordenes o,estadoot e,usuarios u,segmentos s WHERE o.idestadoot > $OT_ST_ENCREACION AND o.id = $id AND o.idestadoot=e.id AND o.fecha_solicitud>='2024-03-01' 
+		AND o.create_user=u.id AND o.idsegmento=s.id order by fecha_solicitud desc limit 100");
+	$row = mysqli_fetch_array($r);
+
+  if (count($row)>0) {
+
+		$id = encrypt($id);
+		$ver = encrypt($OT_VER_GENERADA);
+		$numero = $row['numero'];
+		$estadoot = $row['estado'];
+		$idestadoot = $row['idestadoot'];
+		$fecha_solicitud = $row['fecha_solicitud'];
+		$fecha_requerida = $row['fecha_requerida'];
+		$nombre_usuario = $row['creador'];
+		$tel_usuario = $row['telefono'];
+        $idcontrato =  $row['idcontrato'];
+		$ideecc = $row['ideecc'];
+		$iddepto = $row['iddepto'];
+		$idtipored = $row['idtipored'];
+ ?>
+ <div class="section">
+	<div class="info">
+	 <div class="formpage">
+		<div class="outerbox">
+			<div class="mainHeading"><h2>Ver Orden</h2></div>
+				<form>
+				<script type="text/javascript">
+				$(function() {
+					$( "#tabs" ).tabs({
+						cache:true,
+						beforeLoad: function(event, ui) {
+							ui.panel.html(getSpinner());
+						},
+						create: function(event, ui) {
+							$('#tabs').show();
+						}
+					});
+				});
+				</script>
+				<?php include_once "parts/ot/sec.header.inc.php"; ?>
+				<div id="tabs" style="display: none;">
+					<ul>
+						<li><a href="parts/ot/tab.orden.ro.inc.php?id=<?php echo $id; ?>"><span>Orden</span></a></li>
+						<!--<li><a href="parts/ot/tab.totales.rx.inc.php?id=<?php echo $id; ?>&amp;ver=<?php echo $ver; ?>"><span>Total Baremos</span></a></li>-->
+						<li><a href="#tabs-2">Total Baremos</a></li>
+						<li><a href="parts/ot/tab.baremos.rx.inc.php?id=<?php echo $id; ?>&amp;ver=<?php echo $ver; ?>"><span>Act. Baremos</span></a></li>
+						<li><a href="parts/ot/tab.materiales.rx.inc.php?id=<?php echo $id; ?>&amp;ver=<?php echo $ver; ?>"><span>Materiales</span></a></li>
+						<li><a href="#tabs-3"><span>Equipos</span></a></li>
+						<li><a href="parts/ot/tab.retal.rx.inc.php?id=<?php echo $id; ?>&amp;ver=<?php echo $ver; ?>"><span>Retal</span></a></li>
+						<li><a href="parts/ot/tab.reservas.ro.inc.php?id=<?php echo $id; ?>"><span>Reservas</span></a></li>
+						<li><a href="parts/ot/tab.solicitudes.ro.inc.php?id=<?php echo $id; ?>"><span>Solicitudes</span></a></li>
+						<li><a href="parts/ot/tab.cronograma.ro.inc.php?id=<?php echo $id; ?>&amp;ver=<?php echo $ver; ?>&amp;date=<?php echo $fecha_solicitud; ?>"><span>Cronograma</span></a></li>
+						<li><a href="parts/ot/tab.causacion.ro.inc.php?id=<?php echo $id; ?>"><span>Causacion</span></a></li>
+						<li><a href="parts/ot/tab.pedidos.ro.inc.php?id=<?php echo $id; ?>"><span>Pedidos</span></a></li>
+						<li><a href="parts/ot/tab.adjuntos.ro.inc.php?id=<?php echo $id; ?>"><span>Adjuntos</span></a></li>
+						<li><a href="parts/ot/tab.registro.ro.inc.php?id=<?php echo $id; ?>"><span>Registro</span></a></li>
+						<li><a href="parts/ot/tab.seguimiento.ro.inc.php?id=<?php echo $id; ?>"><span>Seguimiento</span></a></li>
+					</ul>
+					<div id="tabs-2" style="display: none;">
+					<?php $id=decrypt(getVal($_GET['id'],"0")); ?>
+						<?php include_once "parts/ot/tab.totales.xw.inc.php"; ?>
+					</div>
+					<div id="tabs-3" style="display: none;">
+						<?php include_once "parts/ot/tab.equipos.inc.php"; ?>
+					</div>
+				</div>
+				<br class="clear"/>
+				<div class="formbuttons">
+					<?php if($appuser->isAdmin()||$appuser->isInRole("$GENERAR_OT_CAPEX,$GENERAR_OT_OPEX")){ ?>
+						<button type="button" onclick="cloneOT(<?php echo "$MENU_OT_MAKE,'$id','$idcontrato'"?>);">Clonar OT</button>
+					<?php } include_once "parts/frm.regresar.inc.php"; ?>
+				</div>
+				</form>
+		</div>
+	</div>
+	</div>
+ </div>
+<?php
+	}
+ break;
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+default:
+	if ($_POST["enviado"]=='Boton'){
+		$variable="";
+	} else {
+		$variable=" AND o.id='-1'";
+	}
+
+	$sort      		= getVal($_GET['sort'],"0");
+	$order     		= getVal($_GET['order'],"null");
+	$pageNO    		= getVal($_POST['pageNO'],"1");
+  	$pageNO    		= mysqli_real_escape_string($dbsgp,$pageNO);//KIUWAN
+	$rowsxPage 		= 100;
+	$locationfilter = $appuser->getAllFilterOT("o.");
+
+  	$sql = "SELECT o.id,o.numero,o.fecha_solicitud,o.fecha_requerida,o.nombre,o.active,eo.nombre estado,tot.nombre req,ee.nombre eecc,z.nombre zona, d.nombre depto,l.nombre localidad,tr.nombre red,cp.nombre proyecto,u.nombre solicitante,tp.tmo,tp.tma,IF(o.idestadoot NOT IN($OT_ST_CANCELADA,$OT_ST_TERMINADA,$OT_ST_CERRADA,$OT_ST_REGISTRADA),IF(CURRENT_DATE > o.fecha_requerida,'rojo',IF(DATEDIFF(o.fecha_requerida,CURRENT_DATE) <= 2,'amarillo','verde')),'') alerta,o.pm_orden,o.pm_solped, o.trs,o.epro, o.pm_reserva,o.hh_pasados,  UNIX_TIMESTAMP(CURRENT_TIMESTAMP)-IFNULL(UNIX_TIMESTAMP(o.modify_date),UNIX_TIMESTAMP(o.create_date)) secs FROM ordenes o LEFT JOIN eecc ee ON o.ideecc=ee.id LEFT JOIN zonas z ON o.idzona=z.id LEFT JOIN deptos d ON o.iddepto=d.id LEFT JOIN localidades l ON o.idlocalidad=l.id LEFT JOIN tipored tr ON o.idtipored=tr.id LEFT JOIN claseproyecto cp ON o.idclaseproyecto=cp.id LEFT JOIN totalesxorden tp ON (tp.idorden=o.id AND tp.version=$OT_VER_GENERADA) LEFT JOIN usuarios u ON (o.create_user=u.id),tipoot tot,estadoot eo WHERE o.idtipoot=tot.id AND o.fecha_solicitud>='2017-03-01' AND o.idestadoot > $OT_ST_ENCREACION $variable AND o.idestadoot=eo.id $locationfilter".getAllSQLFilters().getSQLSort("o.create_date","DESC");
+
+	$q = db_query($sql);
+  	$regCount = mysqli_num_rows($q);
+
+  $maxPage = ceil($regCount/$rowsxPage);
+  $rowFrom = (($pageNO-1) * $rowsxPage);
+  $fields = array("o.numero"=>"Numero","o.fecha_solicitud"=>"Solicitada","o.fecha_requerida"=>"Requerida","eo.nombre"=>"Estado","o.modify_date"=>"Tiempo","ee.nombre"=>"EECC","z.nombre"=>"Zona","d.nombre"=>"Depto","l.nombre"=>"Localidad","tot.nombre"=>"Tipo","o.nombre"=>"Nombre","tr.nombre"=>"TipoRed","cp.nombre"=>"Proyecto","u.nombre"=>"Solicitante","tp.tmo"=>"Total MO","tp.tma"=>" Total MA","o.pm_orden"=>"Orden PM","o.pm_solped"=>"PM_Solped", "o.trs"=>"Trs","o.hh_pasados"=>"Hogares Pasados");
+  $hash = getRandomString();
+  setReport($hash,"Ordenes",$sql);
+?>
+<div class="section">
+	<div class="info">
+	 <div class="outerbox">
+		<div class="mainHeading"><h2>Ordenes</h2></div>
+		<form name="frmSubmit" id="frmSubmit" method="post" action="?menu=<?php echo getMenu();?>&amp;sort=<?php echo $sort;?>&amp;order=<?php echo $order;?>">
+		<input type="hidden" name="captureState" value="" />
+		<input type="hidden" name="enviado" value="" />
+		<input type="hidden" name="delState" value="" />
+		<input type="hidden" name="pageNO" value="<?php echo $pageNO;?>" />
+
+		<div class="searchbox">
+			<button type="button" onclick="returnFilterLoad();">Buscar</button>
+			<button type="button" onclick="clearFilter();">Limpiar</button>
+			<button type="button" onclick="exportXLS('<?php echo $hash; ?>');">Exportar</button>
+		</div>
+
+		<div class="actionbar">
+			<div class="actionbuttons">
+			</div>
+			<div class="noresultsbar"><?php echo htmlspecialchars($regCount==0?"No hay registros para mostrar!":"")?></div>
+			<div class="pagingbar">
+				<?php paginate($maxPage, $pageNO, $regCount);?>
+			</div>
+			<br class="clear" />
+		</div>
+		<br class="clear" />
+		<div id="Layer1" style="width:100%;height:auto;overflow-x:scroll;">
+		<table cellspacing="0" cellpadding="0" class="data-table">
+			<thead>
+			<?php printFilterGrid($fields)?>
+			<tr>
+				<td width="20">
+					<input type="checkbox" name="allCheck" id="allCheck" class="checkbox" style="margin-left:1px" onclick="doHandleAll()" />
+				</td>
+				<?php printColumns($fields);?>
+				</tr>
+			</thead>
+			<tbody>
+<?php
+				$query = db_query("$sql LIMIT $rowFrom, $rowsxPage");
+				//echo "$sql LIMIT $rowFrom, $rowsxPage";
+				$i=0;
+				while($row = mysqli_fetch_array($query)) {
+					$style = $row['active']=='Si'?($i++%2==0)?"odd":"even":"disabled";
+					echo "<tr class=\"$style\">\n";
+					echo "<td ><input type=\"checkbox\" class=\"checkbox\" name=\"chkLocID[]\" value=\"".htmlspecialchars($row['id'])."\" onclick=\"unCheckMain();\" /></td>\n";
+					if($row['idesatdoot']!=$OT_ST_CERRADA){
+						echo "<td><a href=\"?menu=".getMenu()."&amp;mode=show&amp;id=".encrypt(htmlspecialchars($row['id']))."\">".htmlspecialchars($row['numero'])."</a></td>\n";
+					} else{
+						echo "<td>".htmlspecialchars($row['numero'])."</td>\n";
+					}
+					echo "<td>".htmlspecialchars($row['fecha_solicitud'])."</td>\n";
+					echo "<td class='".htmlspecialchars($row['alerta'])."'>".htmlspecialchars($row['fecha_requerida'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['estado'])."</td>\n";
+					echo "<td>".formatSeconds(htmlspecialchars($row['secs']))."</td>\n";
+					echo "<td>".htmlspecialchars($row['eecc'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['zona'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['depto'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['localidad'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['req'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['nombre'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['red'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['proyecto'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['solicitante'])."</td>\n";
+					echo "<td style='text-align:right'>$".number_format(htmlspecialchars($row['tmo'],2))."</td>\n";
+					echo "<td style='text-align:right'>$".number_format(htmlspecialchars($row['tma'],2))."</td>\n";
+					echo "<td>".htmlspecialchars($row['pm_orden'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['pm_solped'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['Trs'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['idcluster'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['idsubcluster'])."</td>\n";
+					//echo "<td>$row[hh_pasados]</td>\n";
+					echo "<td>".htmlspecialchars($row['idmes'])."</td>\n";
+
+
+
+					echo "</tr>\n";
+				}
+?>
+			</tbody>
+		</table>
+		</div>
+	</form>
+</div>
+</div>
+</div>
+<?php
+} // end switch
+//------------------------------------------------------------------------------------------
+?>

@@ -1,0 +1,532 @@
+<?php
+ob_start();
+
+switch($_REQUEST["mode"]){
+ case 'edit':
+
+	$id=decrypt(getVal($_GET['id']));
+  $id=mysqli_real_escape_string($dbsgp,$id);//KIUWAN
+  
+	$r = @db_query("SELECT * FROM `ordenes` WHERE idestadoot > $OT_ST_ENCREACION AND  `id` = '$id'");
+  $row = mysqli_fetch_array($r);
+	if (count($row)>0) {
+
+
+		$idestadoot = $row['idestadoot'];
+		$estadoot = getNameById("estadoot",$idestadoot);
+		$numero = $row['numero'];
+
+		$nombre_usuario = getNameById("usuarios",$row['create_user']);
+		$tel_usuario = getNameById("usuarios",$row['create_user'],"telefono");
+
+		$fecha_solicitud = $row['fecha_solicitud'];
+		$fecha_requerida = $row['fecha_requerida'];
+
+		$idsegmento = $row['idsegmento'];
+		$idtipoot = $row['idtipoot'];
+		$idcontrato = $row['idcontrato'];
+		$ideecc = $row['ideecc'];
+		$idresponsable = $row['idresponsable'];
+		$idtipored = $row['idtipored'];
+
+		$idzona = $row['idzona'];
+		$iddepto = $row['iddepto'];
+		$idlocalidad = $row['idlocalidad'];
+		$idviabilidad= $row['idviabilidad'];
+
+		$nombre = $row['nombre'];
+		$direccion = $row['direccion'];
+		$ds = $row['ds'];
+		$epro = $row['epro'];
+		$trs = $row['trs'];
+
+		$idclaseproyecto = $row['idclaseproyecto'];
+		$idtipoproyecto = $row['idtipoproyecto'];
+		$idpep = $row['idpep'];
+		$notas = $row['notas'];
+		$resp_movistar = $row['resp_movistar'];
+		$grp_resp_movistar = getSQLValue("SELECT idgrupo FROM usuarios WHERE id=$resp_movistar");
+		$resp_eecc = $row['resp_eecc'];
+		$grp_resp_eec = getSQLValue("SELECT idgrupo FROM usuarios WHERE id=$resp_eecc");//creacion de variable $grp_resp_eec
+//-----acicion de campos nuevos para busqueda en base datos----
+$hh_pasados = $row['hh_pasados'];
+$idcluster = $row['idcluster'];
+$idsubcluster = $row['idsubcluster'];
+$idmes = $row['idmes'];
+//-------------------------------------------------------------
+		$iddistribuidor = $row['iddistribuidor'];
+		$idpop = $row['idpop'];
+		$armario = $row['armario'];
+		$cable = $row['cable'];
+		$parprim = $row['parprim'];
+		$parsec = $row['parsec'];
+		$parkm = $row['parkm'];
+		$kmfibra = $row['kmfibra '];
+		$mtsducto = $row['mtsducto'];
+		$idvelmaxba = $row['idvelmaxba'];
+		$distarm = $row['distarm'];
+		$iddistcaja = $row['iddistcaja'];
+		$viviendas = $row['viviendas'];
+		$torres = $row['torres'];
+		$bocas = $row['bocas'];
+		$verticales = $row['bocas'];
+		$registro = $row['registro'];
+		$latitud = $row['latitud'];
+		$longitud = $row['longitud'];
+		$AtribDist = $row['atrib_dist'];
+		$AtribArm = $row['atrib_arm'];
+
+		$disabled = "disabled='disabled'";
+		$created = $row['create_date'];
+		$create_user = $row['create_user'];
+		$modified = isset($row['modify_date'])?$row['modify_date']:'Nunca';
+
+		$hasLiq = getSQLValue("SELECT IFNULL(count(*),0) FROM liquidaciones WHERE idestadoliq IN($LIQ_ST_ACTIVAS) AND idorden=$id");
+		$liqTotal = getSQLValue("SELECT IFNULL(count(*),0) FROM liquidaciones WHERE tipo='TOTAL' AND idestadoliq IN($LIQ_ST_ACTIVASTOTAL) AND idorden=$id");
+		$estadoliq = getSQLValue("SELECT IFNULL(idestadoliq,0) FROM liquidaciones WHERE id=(SELECT MAX(id) FROM liquidaciones WHERE idorden=$id)");
+		$hcomplete = getSQLValue("SELECT IFNULL(count(*),0) FROM solicitudesh WHERE idestadosol=$SOL_ST_SOLICITADA AND idorden=$id");
+ ?>
+ <div class="section">
+	<div class="info">
+	 <div class="formpage">
+		<div class="outerbox">
+			<div class="mainHeading"><h2>Gestionar Orden</h2></div>
+			 <div class="messagebar">
+                <span id="message" class="error"></span>
+            </div>
+			<form name="frmSubmit" id="frmSubmit" method="post" action="?menu=<?php echo getMenu();?>&amp;mode=save">
+				<input type="hidden" id="txtId" name="txtId" value="<?php echo $id?>"/>
+				<input type="hidden" id="txtClose" name="txtClose" value=""/>
+				<?php
+					include_once "parts/ot/sec.header.inc.php";
+					if(!$appuser->isInState($idestadoot,$OT_ST_ENAPROBACIONECONOMICA)){?>
+				<script type="text/javascript">
+				$(function() {
+					$( "#baremo" ).accordion({ heightStyle:"content", autoHeight:false, clearStyle:true,navigation:true,collapsible:true,active:false});
+					$( "#tabs" ).tabs({
+						cache:true,
+						beforeLoad: function(event, ui) {
+								ui.panel.html(getSpinner());
+						}
+						<?php if(strlen($_GET['tab'])>0)echo htmlspecialchars(",active:$_GET[tab]"); ?>
+					});
+				});
+				</script>
+				<div id="tabs">
+					<ul>
+                        <?php if($appuser->isInState($idestadoot,$OT_ST_APLAZADA)){ ?>
+						<li><a href="#tabs-1">Orden</a></li>
+						<?php } else { ?>
+						<li><a href="parts/ot/tab.orden.ro.inc.php?id=<?php echo encrypt($id); ?>"><span>Orden</span></a></li>
+						<?php }?>
+						<li><a href="#tabs-2">Tot. Baremos</a></li>
+						<?php if($liqTotal==0 || ($liqTotal>0 && ($estadoliq==$LIQ_ST_RECHAZADA || $estadoliq==$LIQ_ST_CANCELADA))){ ?>
+						<li><a href="#tabs-3">Act. Baremos</a></li>
+						<?php } else { ?>
+						<li><a href="parts/ot/tab.baremos.rx.inc.php?id=<?php echo encrypt($id); ?>&amp;ver=<?php echo encrypt($OT_VER_GENERADA); ?>"><span>Act. Baremos</span></a></li>
+						<?php }?>
+						<li><a href="#tabs-4">Materiales</a></li>
+						<li><a href="#tabs-11"><span>Equipos</span></a></li>
+						<li><a href="parts/ot/tab.retal.ro.inc.php?id=<?php echo encrypt($id); ?>&amp;ver=<?php echo encrypt($OT_VER_GENERADA); ?>&amp;grupo=<?php echo $grp_resp_eec; ?>&amp;estado=<?php echo $idestadoot; ?>&amp;grupomovistar=<?php echo $grp_resp_movistar; ?>&amp;ver2=<?php echo encrypt($OT_VER_EJECUCION); ?>"><span>Retal</span></a></li>
+						<?php if(!($liqTotal>0 && $estadoliq!=$LIQ_ST_RECHAZADA && $estadoliq!=$LIQ_ST_CANCELADA)){ ?>
+						<li><a href="#tabs-5">Solicitudes</a></li>
+						<?php } else { ?>
+						<li><a href="parts/ot/tab.solicitudes.ro.inc.php?id=<?php echo encrypt($id); ?>"><span>Solicitudes</span></a></li>
+						<?php } if($appuser->isInState($idestadoot,$OT_ST_ENREPROGRAMACION)||$appuser->isInState($idestadoot,$OT_ST_APLAZADA)
+						||$appuser->isInState($idestadoot,$OT_ST_PENDIENTEMATERIALES)||$appuser->isInState($idestadoot,$OT_ST_ENAPROBACIONECONOMICA)){ ?>
+						<li><a href="#tabs-6">Cronograma</a></li>
+						<?php } else { ?>
+						<li><a href="parts/ot/tab.cronograma.ro.inc.php?id=<?php echo encrypt($id); ?>&amp;ver=<?php echo encrypt($OT_VER_GENERADA); ?>&amp;date=<?php echo $fecha_solicitud; ?>&amp;est=<?php echo $idestadoot; ?>"><span>Cronograma</span></a></li>
+						<?php }?>
+						<li><a href="#tabs-7">Causaci&oacute;n</a></li>
+						<li><a href="#tabs-8">Pedidos</a></li>
+						<li><a href="#tabs-9">Adjuntos</a></li>
+						<?php if(!$appuser->isInState($idtipoot,"$OT_TIPO_DESIGN,$OT_TIPO_DIAGNOSTICO")){
+								if($appuser->isInState($idestadoot,$OT_INACTIVA)){?>
+									<li><a href="parts/ot/tab.registro.ro.inc.php?id=<?php echo encrypt($id); ?>"><span>Registro</span></a></li>
+								<?php } else { ?>
+									<li><a href="#tabs-10">Registro</a></li>
+						<?php } } ?>
+						<li><a href="parts/ot/tab.seguimiento.ro.inc.php?id=<?php echo encrypt($id); ?>"><span>Seguimiento</span></a></li>
+					</ul>
+                    <?php  if($appuser->isInState($idestadoot,$OT_ST_APLAZADA)){ ?>
+                    <div id="tabs-1" style="display: none;">
+						<?php include_once "parts/ot/tab.orden.rw.inc.php"; ?>
+					</div>
+                    <?php }?>
+					<div id="tabs-11" style="display: none;">
+						<?php include_once "parts/ot/tab.equipos.inc.php"; ?>
+					</div>
+					<div id="tabs-2" style="display: none;">
+						<?php include_once "parts/ot/tab.totales.xw.inc.php"; ?>
+					</div>
+					<?php if($liqTotal==0 || ($liqTotal>0 && ($estadoliq==$LIQ_ST_RECHAZADA || $estadoliq==$LIQ_ST_CANCELADA))){ ?>
+					<div id="tabs-3" style="display: none;">
+						<?php include_once "parts/ot/tab.baremos.xw.inc.php"; ?>
+					</div>
+					<?php }?>
+					<div id="tabs-4" style="display: none;">
+						<?php include_once "parts/ot/tab.materiales.xw.inc.php"; ?>
+					</div>
+
+					<?php if(!($liqTotal>0 && $estadoliq!=$LIQ_ST_RECHAZADA && $estadoliq!=$LIQ_ST_CANCELADA)){ ?>
+					<div id="tabs-5" style="display: none;">
+						<?php include_once "parts/ot/tab.solicitudes.rw.inc.php"; ?>
+					</div>
+					<?php }?>
+					<?php if($appuser->isInState($idestadoot,$OT_ST_ENREPROGRAMACION)||$appuser->isInState($idestadoot,$OT_ST_APLAZADA)
+						||$appuser->isInState($idestadoot,$OT_ST_PENDIENTEMATERIALES)||$appuser->isInState($idestadoot,$OT_ST_ENAPROBACIONECONOMICA)){ ?>
+					<div id="tabs-6" style="display: none;">
+						<?php include_once "parts/ot/tab.cronograma.xw.inc.php"; ?>
+						<div id="ganttChart"></div>
+						<br /><br />
+						<div id="eventMessage"></div>
+					</div>
+					<?php }?>
+					<div id="tabs-7" style="display: none;">
+						<?php include_once "parts/ot/tab.causacion.rw.inc.php"; ?>
+					</div>
+					<div id="tabs-8" style="display: none;">
+						<?php include_once "parts/ot/tab.pedidos.rw.inc.php"; ?>
+					</div>
+					<div id="tabs-9" style="display: none;">
+						<?php include_once "parts/ot/tab.adjuntos.rw.inc.php"; ?>
+					</div>
+					<?php if(!$appuser->isInState($idtipoot,"$OT_TIPO_DESIGN,$OT_TIPO_DIAGNOSTICO")&&(!$appuser->isInState($idestadoot,"$OT_INACTIVA"))){?>
+					<div id="tabs-10" style="display: none;">
+						<?php include_once "parts/ot/tab.registro.rw.inc.php"; ?>
+					</div>
+					<?php } ?>
+				</div>
+				<?php } else { ?>
+				<script type="text/javascript">
+				$(function() {
+					$( "#baremo" ).accordion({ heightStyle:"content", autoHeight:false, clearStyle:true,navigation:true,collapsible:true,active:false});
+					$( "#tabs" ).tabs({
+						cache:true,
+						beforeLoad: function(event, ui) {
+								ui.panel.html(getSpinner());
+						},
+						select: function(event, ui) {
+							var idx = $(this).tabs('option', 'selected');
+							if(idx === 0 && $("#txtChanged").val()=="SI"){
+								if(!confirm('Si ha realizado cambios de datos debe guardarlos, desea salir?')){
+									return false;
+								}
+							}
+							return true;
+						}
+						<?php if(strlen($_GET['tab'])>0)echo ",active:".htmlspecialchars($_GET[tab]).""; ?>
+					});
+				});
+				</script>
+				<div id="tabs">
+					<ul>
+						<li><a href="#tabs-1">Orden</a></li>
+						<li><a href="parts/ot/tab.totales.ro.inc.php?id=<?php echo encrypt($id); ?>&amp;ver=<?php echo encrypt($OT_VER_GENERADA); ?>"><span>Tot.Baremos</span></a></li>
+						<li><a href="#tabs-3">Actividades Baremos</a></li>
+						<li><a href="parts/ot/tab.materiales.ro.inc.php?id=<?php echo encrypt($id); ?>&amp;ver=<?php echo encrypt($OT_VER_GENERADA)?>"><span>Materiales</span></a></li>
+						<li><a href="parts/ot/tab.retal.ro.inc.php?id=<?php echo $id; ?>&amp;ver=<?php echo encrypt($OT_VER_GENERADA)?>"><span>Retal</span></a></li>
+						<?php if($appuser->isInState($idestadoot,$OT_ST_ENAPROBACIONECONOMICA)){ ?>
+						<li><a href="#tabs-4">Cronograma</a></li>
+						<?php } else { ?>
+						<li><li><a href="parts/ot/tab.cronograma.ro.inc.php?id=<?php echo encrypt($id); ?>&amp;ver=<?php echo encrypt($OT_VER_GENERADA); ?>&amp;date=<?php echo $fecha_solicitud; ?>">Cronograma</a></li>
+						<?php }?>
+
+						<li><a href="parts/ot/tab.seguimiento.ro.inc.php?id=<?php echo encrypt($id); ?>"><span>Seguimiento</span></a></li>
+						<li><a href="#tabs-6">Adjuntos</a></li>
+					</ul>
+					<div id="tabs-1" style="display: none;">
+						<?php include_once "parts/ot/tab.orden.rw.inc.php"; ?>
+					</div>
+					<div id="tabs-3" style="display: none;">
+						<?php include_once "parts/ot/tab.baremos.rw.inc.php"; ?>
+					</div>
+					<div id="tabs-4" style="display: none;">
+						<?php include_once "parts/ot/tab.cronograma.xw.inc.php"; ?>
+						<div id="ganttChart"></div>
+						<br /><br />
+						<div id="eventMessage"></div>
+					</div>
+					<div id="tabs-5" style="display: none;">
+						<?php include_once "parts/ot/tab.solicitudes.rw.inc.php"; ?>
+					</div>
+					<div id="tabs-6" style="display: none;">
+						<?php include_once "parts/ot/tab.adjuntos.rw.inc.php"; ?>
+					</div>
+				</div>
+				<?php } ?>
+				<br class="clear"/>
+				<div class="formbuttons">
+					<?php
+					include_once "parts/form.dummy.inc.php";
+					//if($tprypres > $tpryejec){
+						include_once "parts/ot/frm.estado.inc.php";
+						include_once "parts/ot/frm.aprobar.inc.php";
+						include_once "parts/ot/frm.reprogramar.inc.php";
+					//} else {
+						include_once "parts/ot/frm.enaprobacion.inc.php";
+					//}
+					include_once "parts/ot/frm.aregistro.inc.php";
+					include_once "parts/ot/frm.terminar.inc.php";
+					include_once "parts/ot/frm.soportes.inc.php";
+					include_once "parts/ot/frm.solicitudcancelacion.inc.php";
+					include_once "parts/ot/frm.cancelar.inc.php";
+					include_once "parts/ot/frm.aplazar.inc.php";
+					include_once "parts/ot/frm.obs.inc.php";
+					include_once "parts/ot/frm.avance.inc.php";
+					include_once "parts/ot/frm.retornar.inc.php";
+          			include_once "parts/ot/frm.registrada.inc.php";
+					include_once "parts/frm.regresar.inc.php";
+					include_once "parts/ot/frm.rechazarApro.inc.php";
+					?>
+				</div>
+			</form>
+		</div>
+		<div class="requirednotice">Los campos marcados con asterisco <span class="required">*</span> son obligatorios.</div>
+	</div>
+	</div>
+ </div>
+<?php
+	 }
+ break;
+case 'save':
+	$txtMake = getPostNum('txtMake');
+	$txtId = getPostNum('txtId');
+
+if($txtMake == "100"){
+	$txtRespMovistar = getPostNum('txtRespMovistar');
+	$txtRespEECC = getPostNum('txtRespEECC');
+
+	$mtsducto = getMtsDucto($txtId,$OT_VER_GENERADA);
+	$parkm = getParKM($txtId,$OT_VER_GENERADA);
+	$kmfibra = getKmFibra($txtId,$OT_VER_GENERADA);
+
+	//- Cambiar de estado a la orden
+	db_query("UPDATE ordenes SET parkm=$parkm,kmfibra=$kmfibra,mtsducto=$mtsducto,`idestadoot`=$OT_ST_CONORDENDETRABAJO,notas='Orden Creada' WHERE id=$txtId");
+	db_query("UPDATE inventario SET estado=$OT_ST_CONORDENDETRABAJO WHERE id_orden=$txtId");
+
+	//-> Asignar bandejas OT
+	db_query("INSERT IGNORE INTO bandejasot(idorden, idgrupo) SELECT $txtId,g.id FROM usuarios u, grupos g WHERE u.id=$txtRespEECC AND u.idgrupo=g.id LIMIT 1");
+	db_query("INSERT IGNORE INTO bandejasot(idorden, idgrupo) SELECT $txtId,g.id FROM usuarios u, grupos g WHERE u.id=$txtRespMovistar AND u.idgrupo=g.id LIMIT 1");
+
+    //Insertar a Registro de Red
+
+    $sql = "SELECT idtipoot FROM ordenes WHERE id=$txtId";
+	$query =  db_query($sql,true);
+  $row = mysqli_fetch_array($query);
+    if (count($row)>0) {
+		if($row['idtipoot'] == '1' OR $row['idtipoot'] == '3')  {
+            db_query("INSERT IGNORE INTO bandejasot(idorden, idgrupo) VALUES ($txtId,7)");
+        }
+    }
+
+    if($txtTipoOt == '1' OR $txtTipoOt == '3')  {
+        db_query("INSERT IGNORE INTO bandejasot(idorden, idgrupo) VALUES ($txtId,7)");
+    }
+
+	db_query("UPDATE viabilidades SET idorden=$txtId,notas='Orden Creada',idestadovb=$VB_ST_EJECUCION,modify_user=$appuser->uid WHERE id=(SELECT idviabilidad FROM ordenes WHERE id=$txtId)");
+	
+  	setRefreshUrl("?menu=$MENU_OT_TRAY&amp;mode=edit&amp;id=".encrypt($txtId));
+	printAndStay("Actualizando base de datos, por favor espere..<br />Se guardo la Orden de Trabajo","ok");
+
+} else {
+	$txtEstado = $OT_ST_ENCREACION;
+	$txtSegmento = getPostNum('txtSegmento');
+	$txtTipoOT = getPostNum('txtTipoOT');
+	$txtContrato = getPostNum('txtContrato');
+	$txtResponsable = getPostNum('txtResponsable');
+	$txtTipoRed = getPostNum('txtTipoRed');
+	$txtZona = getPostNum('txtZona');
+	$txtDepto = getPostNum('txtDepto');
+	$txtLocalidad = getPostNum('txtLocalidad');
+	$txtNombre = getPostStr('txtNombre');
+	$txtDireccion = getPostStr('txtDireccion');
+	//$txtViabilidad = getPostStr('txtViabilidad'); NO se actualiza
+	$txtDs = getPostStr('txtDs');
+	$txtEpro = getPostStr('txtEpro');
+	$txtTrs = getPostStr('txtTrs');
+	$txtClase = getPostNum('txtClase');
+	$txtTipo = getPostNum('txtTipo');
+	$txtPEP = getPostNum('txtPEP');
+	$txtRespMovistar = getPostNum('txtRespMovistar');
+	$txtRespEECC = getPostNum('txtRespEECC');
+
+
+$txthh_pasados = getPostStr('txthh_pasados');
+$txtidcluster = getPostStr('txtidcluster');
+$txtsubcluster = getPostStr('txtsubcluster');
+$txtidmes = getPostStr('txtidmes');
+
+	$txtObs = getPostStr('txtObs');
+	$txtDistribuidor = getPostNum('txtDistribuidor');
+	$txtPOP = getPostNum('txtPOP');
+	$txtArmario = getPostStr('txtArmario');
+	$txtCable = getPostStr('txtCable');
+	$txtPares1 = getPostStr('txtPares1');
+	$txtPares2 = getPostStr('txtPares2');
+	$txtVelMax = getPostStr('txtVelMax');
+	$txtDist2 = getPostStr('txtDist2');
+	$txtDist1 = getPostStr('txtDist1');
+	$txtVivienda = getPostStr('txtVivienda');
+	$txtTorres = getPostStr('txtTorres');
+	$txtBocas = getPostStr('txtBocas');
+	$txtVerticales = getPostStr('txtVerticales');
+	$txtLatitud= getPostStr('txtLatitud');
+	$txtLongitud= getPostStr('txtLongitud');
+	$CheckAtriArm = getPostStr('checkArm');
+	$CheckAtriDist = getPostStr('checkDist');
+
+	if(hasVal($txtTipoOT)&&hasVal($txtSegmento)){
+		$uid = $appuser->uid;
+		$sql_ins = db_query("UPDATE `ordenes` SET `idsegmento`=$txtSegmento,`idtipoot`=$txtTipoOT,`hh_pasados`=$txthh_pasados,`idcluster`=$txtidcluster,`idsubcluster`=$txtsubcluster,`idmes`=$txtidmes,`idcontrato`=$txtContrato,`eeccxresponsable`=$txtResponsable,`idzona`=$txtZona,`iddepto`=$txtDepto,`idlocalidad`=$txtLocalidad,`idtipored`=$txtTipoRed,`nombre`=$txtNombre,`direccion`=$txtDireccion,`ds`=$txtDs,`epro`=$txtEpro,`trs`=$txtTrs,`idclaseproyecto`=$txtClase,`idtipoproyecto`=$txtTipo,idpep=$txtPEP,resp_movistar=$txtRespMovistar,resp_eecc=$txtRespEECC,iddistribuidor=$txtDistribuidor,idpop=$txtPOP,armario=$txtArmario,cable=$txtCable,parprim=$txtPares1,parsec=$txtPares2,idvelmaxba=$txtVelMax,distarm=$txtDist1,iddistcaja=$txtDist2,viviendas=$txtVivienda,torres=$txtTorres,bocas=$txtBocas,verticales=$txtVerticales,notas_ing=$txtObs,latitud=$txtLatitud,longitud=$txtLongitud,atrib_dist=$CheckAtriDist,atrib_arm=$CheckAtriArm WHERE id=$txtId");
+		if($sql_ins > 0){
+			calcularOrden($txtId,$OT_VER_GENERADA);
+			db_query("UPDATE inventario SET departamento=$txtDepto,distribuidor=$txtDistribuidor,armario=$txtArmario,latitud=$txtLatitud,longitud=$txtLongitud,atrib_dist=$CheckAtriDist,atrib_arm=$CheckAtriArm, estado=$txtEstado WHERE id_orden=$txtId");
+		}
+		setRefreshUrl("?menu=".getMenu()."&amp;mode=edit&amp;id=".encrypt($txtId));
+
+		printAndStay("Actualizando base de datos, por favor espere..<br />Se guardo la Orden numero $numero","ok");
+	}
+	else {
+	 printMessage("No ha completado los campos obligatorios...","error");
+	}
+}
+break;
+default:
+
+$sort=getVal($_GET['sort'],"0");
+$order=getVal($_GET['order'],"null");
+$pageNO=getVal($_POST['pageNO'],"1");
+$pageNO=mysqli_real_escape_string($dbsgp,$pageNO);//KIUWAN
+$rowsxPage=100;
+if($appuser->isAdmin()||$appuser->isBtwRole($GESTIONAR_PEDIDOS,$FACTURA)){
+$trayfilter = $appuser->getTrayFilter("o.id","idorden","bandejasot");
+
+
+//Modificacion Export JKM
+//Columna Cluster Y TipoZona  JKM - 07/04/2022
+$locationfilter = $appuser->getAllFilterOT("o.");
+$sql = "SELECT o.id,o.numero,o.fecha_solicitud,o.fecha_requerida,o.nombre,o.active,eo.nombre estado,tot.nombre req,ee.nombre eecc,
+z.nombre zona, 
+d.nombre depto,
+l.nombre localidad,tr.nombre red,cp.nombre proyecto,u.nombre solicitante,tp.tmo,tp.tma,IF(o.idestadoot NOT IN($OT_ST_CANCELADA,$OT_ST_TERMINADA,$OT_ST_CERRADA,$OT_ST_REGISTRADA),
+IF(CURRENT_DATE > o.fecha_requerida,'rojo',IF(DATEDIFF(o.fecha_requerida,CURRENT_DATE) <= 2,'amarillo','verde')),'') alerta,
+o.pm_orden,UNIX_TIMESTAMP(CURRENT_TIMESTAMP)-IFNULL(UNIX_TIMESTAMP(o.modify_date),
+UNIX_TIMESTAMP(o.create_date)) secs, c.nombre central,r.nombre region, pol.nombre poligono,com.nombre Municipio,
+clu.nombre cluster_FTTH,o.sub_cluster sub_cluster,tz.nombre tipo_zona,o.conversor coinversor,o.hh_pasados hogares_pasados,o.idcable cable
+FROM ordenes o LEFT JOIN eecc ee ON o.ideecc=ee.id
+LEFT JOIN zonas z ON o.idzona=z.id
+LEFT JOIN deptos d ON o.iddepto=d.id
+LEFT JOIN localidades l ON o.idlocalidad=l.id
+LEFT JOIN tipored tr ON o.idtipored=tr.id
+LEFT JOIN claseproyecto cp ON o.idclaseproyecto=cp.id
+LEFT JOIN central c ON c.id = o.idcentral
+LEFT JOIN region r ON r.id = o.idregion
+LEFT JOIN comuna com ON com.id = o.idcomuna
+LEFT JOIN poligono pol ON pol.id = o.idpoligono
+LEFT JOIN cluster clu ON clu.id = o.id_cluster
+LEFT JOIN tipozona tz ON tz.id=o.idtipozona
+LEFT JOIN totalesxorden tp ON (tp.idorden=o.id AND tp.version=$OT_VER_GENERADA)
+LEFT JOIN usuarios u ON (o.create_user=u.id),tipoot tot,estadoot eo
+WHERE o.idtipoot=tot.id AND o.idestadoot NOT IN ($OT_ST_CANCELADA,$OT_ST_ENCREACION) 
+AND o.fecha_solicitud>='2017-03-01' 
+AND o.idestadoot=eo.id $trayfilter $locationfilter".getAllSQLFilters().getSQLSort("o.create_date","DESC");
+
+
+$q = db_query($sql);
+$q1 = $sql;
+
+$regCount = mysqli_num_rows($q);
+
+
+$maxPage = ceil($regCount/$rowsxPage);
+$rowFrom = (($pageNO-1) * $rowsxPage);
+$fields = array("o.numero"=>"Numero","o.fecha_solicitud"=>"Solicitada","o.fecha_requerida"=>"Requerida","eo.nombre"=>"Estado","o.modify_date"=>"Tiempo","ee.nombre"=>"EECC","z.nombre"=>"Zona","d.nombre"=>"Depto","l.nombre"=>"Localidad","tot.nombre"=>"Tipo","o.nombre"=>"Nombre","tr.nombre"=>"TipoRed","cp.nombre"=>"Proyecto","u.nombre"=>"Solicitante","tp.tmo"=>"Total MO","tp.tma"=>" Total MA","o.pm_orden"=>"Orden PM","o.pm_solped"=>"PM Solped", "o.trs"=>"Trs");
+$hash = getRandomString();
+setReport($hash,"Ordenes",$sql);
+?>
+<div class="section">
+	<div class="info">
+	 <div class="outerbox">
+		<div class="mainHeading"><h2>Ordenes en Mi Bandeja</h2></div>
+		<form name="frmSubmit" id="frmSubmit" method="post" action="?menu=<?php echo getMenu();?>&amp;sort=<?php echo $sort;?>&amp;order=<?php echo $order;?>">
+		<input type="hidden" name="captureState" value="" />
+		<input type="hidden" name="delState" value="" />
+		<input type="hidden" name="pageNO" value="<?php echo $pageNO;?>" />
+
+		<div class="searchbox">
+			<button type="button" onclick="returnFilter();">Buscar</button>
+			<button type="button" onclick="clearFilter();">Limpiar</button>
+			<button type="button" onclick="exportXLS('<?php echo $hash; ?>');">Exportar</button>
+			<?php echo date_default_timezone_get().": ".date('Y-m-d H:i:s') ?>
+		</div>
+
+		<div class="actionbar">
+			<div class="actionbuttons">
+			</div>
+			<div class="noresultsbar"><?php echo htmlspecialchars($regCount)==0?"No hay registros para mostrar!":""?></div>
+			<div class="pagingbar">
+				<?php paginate($maxPage, $pageNO, $regCount);?>
+			</div>
+			<br class="clear" />
+		</div>
+		<br class="clear" />
+		<div id="Layer1" style="width:100%;height:auto;overflow-x:scroll;">
+		<table cellspacing="0" cellpadding="0" class="data-table">
+			<thead>
+			<?php printFilterGrid($fields)?>
+			<tr>
+				<td width="20">
+					<input type="checkbox" name="allCheck" id="allCheck" class="checkbox" style="margin-left:1px" onclick="doHandleAll()" />
+				</td>
+				<?php printColumns($fields);?>
+				</tr>
+			</thead>
+			<tbody>
+<?php
+				$query = db_query("$sql LIMIT $rowFrom, $rowsxPage");
+				//echo "$sql LIMIT $rowFrom, $rowsxPage";
+				$i=0;
+				while($row = mysqli_fetch_array($query)) {
+					$style = $row['active']=='Si'?($i++%2==0)?"odd":"even":"disabled";
+          echo "<tr class=\"$style\">\n";
+					echo "<td ><input type=\"checkbox\" class=\"checkbox\" name=\"chkLocID[]\" value=\"".htmlspecialchars($row['id'])."\" onclick=\"unCheckMain();\" /></td>\n";
+					echo "<td><a href=\"?menu=".getMenu()."&amp;mode=edit&amp;id=".encrypt(htmlspecialchars($row['id']))."\">".htmlspecialchars($row['numero'])."</a></td>\n";
+					echo "<td>".htmlspecialchars($row['fecha_solicitud'])."</td>\n";
+					echo "<td class='".htmlspecialchars($row['alerta'])."'>".htmlspecialchars($row['fecha_requerida'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['estado'])."</td>\n";
+					echo "<td>".formatSeconds(htmlspecialchars($row['secs']))."</td>\n";
+					echo "<td>".htmlspecialchars($row['eecc'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['zona'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['depto'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['localidad'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['req'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['nombre'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['red'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['proyecto'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['solicitante'])."</td>\n";
+					echo "<td style='text-align:right'>$".number_format(htmlspecialchars($row['tmo'],2))."</td>\n";
+					echo "<td style='text-align:right'>$".number_format(htmlspecialchars($row['tma'],2))."</td>\n";
+					echo "<td>".htmlspecialchars($row['pm_orden'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['pm_solped'])."</td>\n";
+					echo "<td>".htmlspecialchars($row['Trs'])."</td>\n";
+					echo "</tr>\n";
+        }
+
+?>
+			</tbody>
+		</table>
+		</div>
+	</form>
+</div>
+</div>
+</div>
+<?php
+	}
+	else {
+		printMessage("Su perfil no le permite tener una bandeja de trabajo!","warn");
+	}
+} // end switch
+//------------------------------------------------------------------------------------------
+?>
