@@ -1,0 +1,190 @@
+<?php
+
+include_once "../includes/global.php";
+include_once "../includes/database.php";
+
+// Cabeceras para evitar el CORS
+
+header('Access-Control-Allow-Origin: *');
+header("Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept");
+header('Access-Control-Allow-Methods: POST');
+
+// Cabecera para evitar fallos en el JSON
+header('content-type: application/json; charset=utf-8');
+
+$data = [];
+
+switch ( strtoupper($_SERVER['REQUEST_METHOD']) ) {
+    case 'POST':
+        $dataReq = file_get_contents('php://input');
+
+        $data = json_decode($dataReq,true);
+
+        if(empty($data['user'])){ echo json_encode(array("Estado" => 400, "Mensaje" => "Debe ingresar un usuario para continuar")); http_response_code(400); die(); }
+        if(empty($data['pass'])){ echo json_encode(array("Estado" => 400, "Mensaje" => "Debe ingresar una contraseña para continuar")); http_response_code(400); die(); }
+        if(empty($data['viabilidad'])){ echo json_encode(array("Estado" => 400, "Mensaje" => "Debe ingresar una viabilidad para crear su OT")); http_response_code(400); die(); }
+        if(empty($data['pep'])){ echo json_encode(array("Estado" => 400, "Mensaje" => "Debe ingresar un pep para continuar")); http_response_code(400); die(); }
+        if(empty($data['presupuesto'])){ echo json_encode(array("Estado" => 400, "Mensaje" => "Debe ingresar un presupuesto")); http_response_code(400); die();}
+        if(empty($data['segmento'])){ echo json_encode(array("Estado" => 400, "Mensaje" => "Debe ingresar un segmento")); http_response_code(400); die();}
+
+        
+        
+        $sql = db_query("SELECT * FROM usuarios WHERE login = '$data[user]' AND password = md5('$data[pass]')");
+        $rows = mysqli_num_rows($sql);
+        
+        if($rows > 0){
+            
+
+
+            // include 'service_ot_creada.php';
+
+            $rowUser = mysqli_fetch_array($sql);
+            $user = $rowUser['id'];
+            $set =  db_query("SELECT * FROM `viabilidades` WHERE idestadovb > 0 AND `numero` = '$data[viabilidad]'");
+            
+            if(mysqli_num_rows($set) > 0){
+            
+              $row = mysqli_fetch_array($set);
+
+            //Flujo de viabilidad
+
+            // $idpp=mysqli_real_escape_string($dbsgp,$idpp);//KIUWAN
+            $idvb=$row['id'];
+
+            //if(ppto>5palos)
+            db_query("INSERT INTO seguimientovb (idviabilidad, idestadovb, idusuario, notas, create_date) 
+                                                            VALUES ($idvb, 6, $user, 'Presupuesto aprobado',NOW())");
+
+           // else (update al query)
+
+            $pres =  db_query("SELECT * FROM `presupuesto` WHERE id = " . $data['presupuesto']);
+            $rowP = mysqli_fetch_array($pres);
+            
+            if($rowP['active'] == 'No') {
+              echo json_encode(array("Estado" => 202,"Mensaje" => "No hay presupuesto activo para la viabilidad " . $data['viabilidad'],"TimeStamp" => date('Y-m-d h:i:s')));
+                http_response_code(202);
+                die();
+            }
+            $seg;
+            if($data['segmento'] == "CORPORACIONES") {
+                $seg = 2;
+            } else if($data['segmento'] == "EMPRESAS") {
+                $seg = 3;
+            }
+            
+            $idpp= $data['presupuesto'];
+                
+
+                // $idvb=mysqli_real_escape_string($dbsgp,$idvb);//KIUWAN
+                if($idpp > 0){
+                    $vbot = getSQLValue("SELECT COUNT(IFNULL(idviabilidad,0)) FROM ordenes WHERE idviabilidad IS NOT NULL AND idviabilidad=$idvb");
+                    if($vbot == 0){
+                    $sql = "INSERT INTO ordenes (`numero`,`fecha_solicitud`,`idestadoot`,`idsegmento`,`idtipoot`,`fecha_requerida`,`idcontrato`,`idzona`,`iddepto`,`idlocalidad`,`idtipored`,
+                            `nombre`,`direccion`,`idviabilidad`,`idpresupuesto`,`ds`,`epro`,`trs`,`idclaseproyecto`,`idtipoproyecto`,`idpep`,`notas_ing`,`notas`,`ideecc`,`eeccxresponsable`,`resp_movistar`,
+                            `resp_eecc`,`iddistribuidor`,`armario`,`cable`,`idpop`,`parprim`,`parsec`,`parkm`,`kmfibra`,`mtsducto`,`idvelmaxba`,`distarm`,`iddistcaja`,`viviendas`,`torres`,`bocas`,`verticales`,latitud,longitud,atrib_dist,atrib_arm,`create_user`,`modify_user`)
+                            SELECT '0',CURRENT_DATE,$OT_ST_ENCREACION,`idsegmento`,`idtipoot`,DATE_ADD(CURRENT_DATE,INTERVAL DATEDIFF(`fecha_requerida`,`fecha_solicitud`) DAY),`idcontrato`,`idzona`,`iddepto`,`idlocalidad`,`idtipored`,`nombre`,`direccion`,$idvb,`id`,`ds`,`epro`,`trs`,`idclaseproyecto`,`idtipoproyecto`,null,`notas`,'Orden Iniciada',`ideecc`,`eeccxresponsable`,`resp_movistar`,`resp_eecc`,`iddistribuidor`,`armario`,`cable`,`idpop`,`parprim`,`parsec`,`parkm`,`kmfibra`,`mtsducto`,`idvelmaxba`,`distarm`,`iddistcaja`,`viviendas`,`torres`,`bocas`,`verticales`,latitud,longitud,atrib_dist,atrib_arm,$user,$user
+                            FROM presupuesto WHERE estado='CREADO' AND `id` = '$idpp'";
+                        if(db_query($sql) > 0){
+                            $lastot = getLastId();
+                            $sql2 = db_query("SELECT idcontrato FROM ordenes WHERE id = $lastot");
+                            $rowContrato = mysqli_fetch_array($sql2);
+                            
+                            $sql3 = db_query("SELECT id FROM peps WHERE mo = '$data[pep]'");
+                            $rowPep = mysqli_fetch_array($sql3);
+                            
+                            //                            
+                            $sql_c = db_query("SELECT * FROM contratos WHERE contratos.id = $rowContrato[idcontrato]");
+                            $rowC = mysqli_fetch_array($sql_c);
+                            
+                            $sql_e = db_query("SELECT * FROM subcontratista WHERE subcontratista.identificacion = '$rowC[numero]' 
+                                               AND subcontratista.active = 'Si'");
+                            $rowC = mysqli_fetch_array($sql_e);
+                            $RowsCount = mysqli_num_rows($sql_e);
+
+                            $eeccXResponsable;
+                            if(empty($RowsCount)) {
+                                $eeccXResponsable = "UPDATE ordenes SET idpep = '$rowPep[id]', idestadoot = 3, idsegmento = $seg, idtipoproyecto = 28, idclaseproyecto = 7 WHERE id = $lastot";
+                            } else {
+                                $eeccXResponsable = "UPDATE ordenes SET idpep = '$rowPep[id]', eeccxresponsable = $rowC[id], idestadoot = 3, idsegmento = $seg, idtipoproyecto = 28, idclaseproyecto = 7 WHERE id = $lastot";
+                            }
+
+                            db_query($eeccXResponsable);
+                            db_query("INSERT INTO cronograma(idorden,version) VALUES($lastot,$OT_VER_GENERADA)");
+                            $newcrono = getLastId();
+                            db_query("INSERT INTO tareas(idcrono,idtipo,duracion,antecesor) SELECT $newcrono,t.idtipo,t.duracion,t.antecesor FROM pretareas t, precronograma c WHERE t.idcrono=c.id AND c.idpresupuesto=$idpp");
+                            $lastcrono = getSQLValue("SELECT IFNULL(id,0) FROM precronograma WHERE idpresupuesto=$idpp");
+                            $lastminid = getSQLValue("SELECT MIN(id) FROM pretareas WHERE idcrono=$lastcrono");
+                            $ds_vb = getSQLValue("select ds from sgp.viabilidades  where id=$idvb");
+                            $ds_pp = getSQLValue("select case when  ds is null then 'NOEXISTE' else ds end  ds from sgp.presupuesto  where id=$idpp");
+                            $newminid = getSQLValue("SELECT MIN(id) FROM tareas WHERE idcrono=$newcrono");
+                            db_query("UPDATE tareas SET antecesor = $newminid + (antecesor - $lastminid) WHERE idcrono=$newcrono AND antecesor IS NOT NULL");
+                            $numero = "OT-".padZeroLeft($lastot,8);
+                            db_query("UPDATE `ordenes` SET numero='$numero' WHERE id=$lastot");
+                            db_query("INSERT INTO inventario(id_orden,numero_orden,departamento,distribuidor,armario,latitud,longitud,atrib_dist,atrib_arm,usuario,estado)
+                            SELECT id, numero,iddepto, iddistribuidor, armario, latitud, longitud, atrib_dist,atrib_arm, create_user, $OT_ST_ENCREACION FROM ordenes WHERE id=$lastot");
+                            //->Update Files
+                            $r =  db_query("SELECT titulo,archivo,create_user FROM adjuntospp WHERE idpresupuesto=$idpp");
+                            while ($row = mysqli_fetch_array($r)) {
+                                $filename = $lastot."_".$row['archivo'];
+                                $rowarc=$row['archivo'];
+                                if(copy(PP_FILE_PATH. DIRECTORY_SEPARATOR .basename($rowarc),OT_FILE_PATH. DIRECTORY_SEPARATOR .basename($filename))) {
+                                    db_query("INSERT INTO adjuntosot(idorden,titulo,archivo,create_user) VALUES($lastot,'$row[titulo]','$filename',$row[create_user])");
+                                }
+                            }
+                            db_query("INSERT INTO materialesxorden
+                                    (`idorden`,`version`,`idbaremo`,`idmaterial`,`factor`,`unidad`,`valor`,`cantidad`,`movistar`,`parkm`,`mtsducto`,`puntoa`,`puntob`,`v1`,`v2`,`v3`,`v4`,`v5`,`v6`,`empalmes`)
+                                    SELECT  $lastot,$OT_VER_GENERADA,`idbaremo`,`idmaterial`,`factor`,`unidad`,`valor`,`cantidad`,`movistar`,`parkm`,`mtsducto`,`puntoa`,`puntob`,`v1`,`v2`,`v3`,`v4`,`v5`,`v6`,`empalmes`
+                                    FROM materialesxpresupuesto WHERE idpresupuesto=$idpp");
+                            db_query("INSERT INTO retalxorden
+                                    (`idorden`,`version`,`idbaremo`,`idmaterial`,`factor`,`unidad`,`valor`,`cantidad`,`movistar`,`parkm`,`mtsducto`,`puntoa`,`puntob`,`v1`,`v2`,`v3`,`v4`,`v5`,`v6`,`empalmes`)
+                                    SELECT  $lastot,$OT_VER_GENERADA,`idbaremo`,`idmaterial`,`factor`,`unidad`,`valor`,`cantidad`,`movistar`,`parkm`,`mtsducto`,`puntoa`,`puntob`,`v1`,`v2`,`v3`,`v4`,`v5`,`v6`,`empalmes`
+                                    FROM retalxpresupuesto WHERE idpresupuesto=$idpp");
+                            db_query("INSERT INTO actividadesxorden (`idorden`,`version`,`idbaremo`,`puntos`,`material`,`cantidad`,`suplemento`,`mtsducto`,`pares`,`empalmes`,`depende`)
+                                    SELECT $lastot,$OT_VER_GENERADA,`idbaremo`,`puntos`,`material`,`cantidad`,`suplemento`,`mtsducto`,`pares`,`empalmes`,IF(depende IS NOT NULL AND depende!='',CONCAT('$lastot','-','$OT_VER_GENERADA','-',SUBSTRING_INDEX(depende,'-',-1)),'')
+                                    FROM actividadesxpresupuesto WHERE idpresupuesto=$idpp");
+
+                            db_query("INSERT INTO totalesxorden(idorden,version,fdepto,cdirecto,claseh,costoaiu,utilidadp,utilidad,ivap,iva,tpb,tmo,tca,tma,totros,tpry) SELECT $lastot,$OT_VER_GENERADA,fdepto,cdirecto,claseh,costoaiu,utilidadp,utilidad,ivap,iva,tpb,tmo,tca,tma,totros,tpry FROM totalesxpresupuesto WHERE idpresupuesto=$idpp");
+
+                            db_query("INSERT INTO preciosxorden(idorden,version,idclase,unidad,valor,costo,puntos) SELECT $lastot,$OT_VER_GENERADA,idclase,unidad,valor,costo,puntos FROM preciosxpresupuesto WHERE idpresupuesto=$idpp");
+                            if($ds_pp=='NOEXISTE'){
+                                    db_query("UPDATE ordenes SET ds = '$ds_vb' WHERE id=$lastot");
+                                    }
+                                
+                                db_query("INSERT INTO bandejasot (idorden, idgrupo) VALUES ($lastot, 8)");
+                                db_query("INSERT INTO bandejasot (idorden, idgrupo) VALUES ($lastot, 10)");
+                                db_query("DELETE FROM bandejasvb WHERE idviabilidad=$idvb",true);
+                                db_query("INSERT INTO bandejasvb (idviabilidad, idgrupo) VALUES ($idvb, 6)",true);
+                                db_query("INSERT INTO bandejasvb (idviabilidad, idgrupo) VALUES ($idvb, 13)",true);
+                                db_query("UPDATE viabilidades SET notas='Orden Creada', idestadovb=2, idorden= $lastot WHERE id=$idvb");
+                                        
+                            calcularOrden($lastot,$OT_VER_GENERADA);
+
+                            $response = json_encode(array("Estado" => 200,"Mensaje" => "Se genero correctamente la OT para la viabilidad $data[viabilidad]","TimeStamp" => date('Y-m-d h:i:s'),"Resultados" => array("viablidiad" => $data['viabilidad'],"OTCronos" => $data['otcronos'],"OTGestot" => $numero, "EstadoOT" => "Con orden de trabajo")));
+                            http_response_code(200);
+                        }
+                        
+                    } else {
+                        $response = json_encode(array("Estado" => 202,"Mensaje" => "No se puede crear la OT debido a que ya existe una con la viabilidad VB-".padZeroLeft($idvb,8)." asignada!","TimeStamp" => date('Y-m-d h:i:s')));
+                        http_response_code(202);
+                    }
+                }
+            } else {
+                $response = json_encode(array("Estado" => 202,"Mensaje" => "No se ha creado ninguna viabilidad con el numero " . $data['viabilidad'],"TimeStamp" => date('Y-m-d h:i:s')));
+                http_response_code(202);
+            }
+        }else{
+            $response = json_encode(array("Estado" => 401,"Mensaje" => "Usuario o Contraseña no son correctos.","TimeStamp" => date('Y-m-d h:i:s')));
+            http_response_code(401);
+        }
+        db_query("INSERT INTO service_log (request, response, viabilidad) VALUES ('$dataReq', '$response', '$data[viabilidad]')");
+        echo $response;
+        die();
+    break;
+
+    default:
+        $response = json_encode(array("Estado" => 405,"Mensaje" => "Metodo de comsumo es incorrecto!","TimeStamp" => date('Y-m-d h:i:s')));
+        http_response_code(405);
+    break;
+}
+
+?>

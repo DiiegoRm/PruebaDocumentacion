@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions 
+	xmlns:soap      = "http://schemas.xmlsoap.org/wsdl/soap/" 
+	xmlns:tns       = "https://gestot.telefonica.com.co/service/soap_services/" 
+	xmlns:wsdl      = "http://schemas.xmlsoap.org/wsdl/" 
+	xmlns:xsd       = "http://www.w3.org/2001/XMLSchema" 
+	name            = "GestotWebService" 
+    targetNamespace = "https://gestot.telefonica.com.co/service/soap_services/">
+	<wsdl:types>
+		<xsd:schema targetNamespace="https://gestot.telefonica.com.co/service/soap_services/">
+			<!-- INI: Create user-->
+			<xsd:element name="create">
+				<xsd:complexType>
+					<xsd:sequence>
+                            <xsd:element name="documento" type="xsd:int"></xsd:element>
+                            <xsd:element name="login" type="xsd:string"></xsd:element>
+                            <xsd:element name="email" type="xsd:string"></xsd:element>
+                            <xsd:element name="nombre" type="xsd:string"></xsd:element>
+                            <xsd:element name="grupo" type="xsd:int"></xsd:element>
+                            <xsd:element name="recobre" type="xsd:int"></xsd:element>
+					</xsd:sequence>
+				</xsd:complexType>
+			</xsd:element>
+            <xsd:element name="update">
+				<xsd:complexType>
+					<xsd:sequence>
+                            <xsd:element name="documento" type="xsd:int"></xsd:element>
+                            <xsd:element name="login" type="xsd:string"></xsd:element>
+                            <xsd:element name="email" type="xsd:string"></xsd:element>
+                            <xsd:element name="nombre" type="xsd:string"></xsd:element>
+                            <xsd:element name="grupo" type="xsd:int"></xsd:element>
+                            <xsd:element name="recobre" type="xsd:int"></xsd:element>
+					</xsd:sequence>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="enable">
+				<xsd:complexType>
+					<xsd:sequence>
+                        <xsd:element name="documento" type="xsd:int"></xsd:element>
+					</xsd:sequence>
+				</xsd:complexType>
+			</xsd:element>
+            <xsd:element name="disable">
+				<xsd:complexType>
+					<xsd:sequence>
+                        <xsd:element name="documento" type="xsd:int"></xsd:element>
+					</xsd:sequence>
+				</xsd:complexType>
+			</xsd:element>
+            <xsd:element name="read">
+				<xsd:complexType>
+					<xsd:sequence>
+                        <xsd:element name="documento" type="xsd:int"></xsd:element>
+					</xsd:sequence>
+				</xsd:complexType>
+			</xsd:element>
+
+            <xsd:element name="createResponse">
+				<xsd:complexType>
+					<xsd:sequence>
+						<xsd:element name="estado" type="xsd:string"></xsd:element>
+                        <xsd:element name="mensaje" type="xsd:string"></xsd:element>
+					</xsd:sequence>
+				</xsd:complexType>
+			</xsd:element>
+            <xsd:element name="updateResponse">
+				<xsd:complexType>
+					<xsd:sequence>
+						<xsd:element name="estado" type="xsd:string"></xsd:element>
+                        <xsd:element name="mensaje" type="xsd:string"></xsd:element>
+					</xsd:sequence>
+				</xsd:complexType>
+			</xsd:element>
+            <xsd:element name="enableResponse">
+				<xsd:complexType>
+					<xsd:sequence>
+						<xsd:element name="estado" type="xsd:string"></xsd:element>
+                        <xsd:element name="mensaje" type="xsd:string"></xsd:element>
+					</xsd:sequence>
+				</xsd:complexType>
+			</xsd:element>
+            <xsd:element name="disableResponse">
+				<xsd:complexType>
+					<xsd:sequence>
+						<xsd:element name="estado" type="xsd:string"></xsd:element>
+                        <xsd:element name="mensaje" type="xsd:string"></xsd:element>
+					</xsd:sequence>
+				</xsd:complexType>
+			</xsd:element>
+
+			<xsd:element name="readResponse">
+				<xsd:complexType>
+					<xsd:sequence>
+                        <xsd:element name="documento" type="xsd:int"></xsd:element>
+						<xsd:element name="login" type="xsd:string"></xsd:element>
+                        <xsd:element name="email" type="xsd:string"></xsd:element>
+                        <xsd:element name="nombre" type="xsd:string"></xsd:element>
+                        <xsd:element name="grupo" type="xsd:int"></xsd:element>
+                        <xsd:element name="recobre" type="xsd:boolean"></xsd:element>
+                        <xsd:element name="ultima_modificacion" type="xsd:string"></xsd:element>
+					</xsd:sequence>
+				</xsd:complexType>
+			</xsd:element>	
+        </xsd:schema>
+	</wsdl:types>
+
+    <!-- INI: Create user-->
+	<wsdl:message name="createRequest">
+		<wsdl:part name="parameters" element="tns:create"/>
+	</wsdl:message>
+	<wsdl:message name="createResponse">
+		<wsdl:part name="parameters" element="tns:createResponse"/>
+	</wsdl:message>
+    <!-- END: Create user-->
+    <!-- INI: update user-->
+	<wsdl:message name="updateRequest">
+		<wsdl:part name="parameters" element="tns:update"/>
+	</wsdl:message>
+	<wsdl:message name="updateResponse">
+		<wsdl:part name="parameters" element="tns:updateResponse"/>
+	</wsdl:message>
+    <!-- END: update user-->
+    <!-- INI: enable user-->
+	<wsdl:message name="enableRequest">
+		<wsdl:part name="parameters" element="tns:enable"/>
+	</wsdl:message>
+	<wsdl:message name="enableResponse">
+		<wsdl:part name="parameters" element="tns:enableResponse"/>
+	</wsdl:message>
+    <!-- END: delete user-->
+    <!-- INI: disable user-->
+	<wsdl:message name="disableRequest">
+		<wsdl:part name="parameters" element="tns:disable"/>
+	</wsdl:message>
+	<wsdl:message name="disableResponse">
+		<wsdl:part name="parameters" element="tns:disableResponse"/>
+	</wsdl:message>
+    <!-- END: disable user-->
+    <!-- INI: read user-->
+	<wsdl:message name="readRequest">
+		<wsdl:part name="parameters" element="tns:read"/>
+	</wsdl:message>
+	<wsdl:message name="readResponse">
+		<wsdl:part name="parameters" element="tns:readResponse"/>
+	</wsdl:message>
+    <!-- END: read user-->
+    
+	<wsdl:portType name="GestotWebService">
+
+        <!-- INI: Create user-->
+		<wsdl:operation name="create">
+			<wsdl:input message="tns:createRequest"/>
+			<wsdl:output message="tns:createResponse"/>
+		</wsdl:operation>
+        <!-- END: Create user-->
+        <!-- INI: update user-->
+		<wsdl:operation name="update">
+			<wsdl:input message="tns:updateRequest"/>
+			<wsdl:output message="tns:updateResponse"/>
+		</wsdl:operation>
+        <!-- END: update user-->
+        <!-- INI: enable user-->
+		<wsdl:operation name="enable">
+			<wsdl:input message="tns:enableRequest"/>
+			<wsdl:output message="tns:enableResponse"/>
+		</wsdl:operation>
+        <!-- END: enable user-->
+        <!-- INI: disable user-->
+		<wsdl:operation name="disable">
+			<wsdl:input message="tns:disableRequest"/>
+			<wsdl:output message="tns:disableResponse"/>
+		</wsdl:operation>
+        <!-- END: disable user-->
+        <!-- INI: read user-->
+		<wsdl:operation name="read">
+			<wsdl:input message="tns:readRequest"/>
+			<wsdl:output message="tns:readResponse"/>
+		</wsdl:operation>
+        <!-- END: read user-->
+
+	</wsdl:portType>
+
+
+	<wsdl:binding name="GestotWebService" type="tns:GestotWebService">
+
+		<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<wsdl:operation name="create">
+			<soap:operation soapAction="https://gestot.telefonica.com.co/service/soap_services/create"/>
+			<wsdl:input>
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output>
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+
+        <wsdl:operation name="update">
+			<soap:operation soapAction="https://gestot.telefonica.com.co/service/soap_services/update"/>
+			<wsdl:input>
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output>
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+
+        <wsdl:operation name="enable">
+			<soap:operation soapAction="https://gestot.telefonica.com.co/service/soap_services/enable"/>
+			<wsdl:input>
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output>
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+
+        <wsdl:operation name="disable">
+			<soap:operation soapAction="https://gestot.telefonica.com.co/service/soap_services/disable"/>
+			<wsdl:input>
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output>
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+
+        <wsdl:operation name="read">
+			<soap:operation soapAction="https://gestot.telefonica.com.co/service/soap_services/read"/>
+			<wsdl:input>
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output>
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+
+	</wsdl:binding>
+	<wsdl:service name="GestotWebService">
+		<wsdl:port name="GestotWebService" binding="tns:GestotWebService">
+			<soap:address location="https://gestot.telefonica.com.co/service/soap_services/service_handler.php"/>
+		</wsdl:port>
+	</wsdl:service>
+</wsdl:definitions>

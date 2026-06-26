@@ -1,0 +1,20 @@
+
+trigger: none
+resources:
+  repositories:
+  - repository: build-branch-tasks
+    endpoint: AzureReposMoebiusSC
+    type: git
+    name: plantillas/build-branch-tasks
+    trigger:
+    - none
+stages:
+- stage: validation
+  displayName: validation merger
+  jobs:
+    - job: build
+      displayName: validation merger
+      pool:
+        vmImage: ubuntu-latest
+      steps:
+      - template: build-branch.yml@build-branch-tasks

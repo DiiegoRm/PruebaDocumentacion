@@ -1,0 +1,75 @@
+trigger:
+- master
+
+resources:
+- repo: self
+
+variables:
+  dockerRegistryServiceConnection: 'aproddevopsrc'
+  imageRepository: 'gestot-desa'
+  containerRegistry: 'aproddevopsrc.azurecr.io'
+  dockerfilePath: '**/Dockerfile'
+  tag: '$(Build.BuildId)'
+  imagePullSecret: 'aproddevopsrc19452927-auth'
+  vmImageName: 'ubuntu-latest'
+  mysqlServer: '10.86.54.135'
+  mysqlUser: 'gestot_user@10.86.54.135'
+  mysqlPassword: 'Temporal01*'
+  mysqlDatabase: 'sgp'
+
+stages:
+- stage: Build
+  displayName: Build stage
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: Docker@2
+      displayName: Build and push an image to container registry
+      inputs:
+        command: buildAndPush
+        repository: $(imageRepository)
+        dockerfile: $(dockerfilePath)
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(tag)
+
+    - upload: manifests
+      artifact: manifests
+
+- stage: Deploy
+  displayName: Deploy stage
+  dependsOn: Build
+  jobs:
+  - deployment: Deploy
+    displayName: Deploy
+    pool:
+      vmImage: $(vmImageName)
+    environment: 'adesaakstransv01'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: KubernetesManifest@0
+            inputs:
+              action: 'createSecret'
+              kubernetesServiceConnection: 'adesaakstransv01-sc'
+              namespace: 'gestot'
+              secretType: 'dockerRegistry'
+              secretName: '$(imagePullSecret)'
+              dockerRegistryEndpoint: '$(dockerRegistryServiceConnection)'
+
+          - task: KubernetesManifest@0
+            displayName: Deploy to Kubernetes cluster
+            inputs:
+              action: deploy
+              kubernetesServiceConnection: 'adesaakstransv01-sc'
+              namespace: 'gestot'
+              manifests: |
+                $(Pipeline.Workspace)/manifests/deployment.yml
+              imagePullSecrets: |
+                $(imagePullSecret)
+              containers: |
+                $(containerRegistry)/$(imageRepository):$(tag)
