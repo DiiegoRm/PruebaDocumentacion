@@ -1,0 +1,41 @@
+<?php
+include_once "../../includes/session.php";
+include_once "../../includes/global.php";
+include_once "../../includes/database.php";
+$id=decrypt(getVal($_GET['id'],"0"));
+if(hasVal($id)){
+	$rp =  db_query("SELECT o.numero,o.fecha_solicitud,di.nombre distribuidor,p.nombre pop,armario,vv.cable,parprim,parsec,v.nombre velmaxba,distarm,dd.nombre distcaja,tp.tmo,tp.tma,vv.notas_ing FROM viabilidades vv LEFT JOIN presupuesto o ON (vv.idpresupuesto=o.id) LEFT JOIN totalesxpresupuesto tp ON (tp.idpresupuesto=o.id) LEFT JOIN distribuidores di ON (o.iddistribuidor=di.id) LEFT JOIN pops p ON (o.idpop=p.id) LEFT JOIN distancia dd ON (o.iddistcaja=dd.id) LEFT JOIN velocidad v ON (o.idvelmaxba=v.id) WHERE vv.id=$id");
+	$rp = mysqli_fetch_array($rp);
+	if (count($rp)>0) {
+}?>
+<table class="data-ro" id="orden-sec-24">
+	<tr>
+		<td class="title">Presupuesto:</td><td class="field"><?php echo htmlspecialchars($rp['numero']); ?></td>
+		<td class="title">Fecha Presupuesto:</td><td class="field"><?php echo htmlspecialchars($rp['fecha_solicitud']); ?></span></td>
+	</tr>
+	<tr>
+		<td class="title">Mano de Obra:</td><td class="field">$<?php echo htmlspecialchars(number_format($rp['tmo'],2)); ?></td>
+		<td class="title">Materiales:</td><td class="field">$<?php echo htmlspecialchars(number_format($rp['tma'],2)); ?></span></td>
+	</tr>
+	<tr>
+		<td class="title">Distribuidor:</td><td class="field"><?php echo htmlspecialchars($rp['distribuidor']); ?></span></td>
+		<td class="title">POP:</td><td class="field"><?php echo htmlspecialchars($rp['pop']); ?></td>
+	</tr>
+		<td class="title">Cable:</td><td class="field"><?php echo htmlspecialchars($rp['cable']); ?></td>
+		<td class="title">Armario:</td><td class="field"><?php echo htmlspecialchars($rp['armario']); ?></td>
+	<tr>
+		<td class="title">Pares Primarios:</td><td class="field"><?php echo htmlspecialchars($rp['parprim']); ?></td>
+		<td class="title">Pares Secundarios:</td><td class="field"><?php echo htmlspecialchars($rp['parsec']); ?></td>
+	</tr>
+	<tr>
+		<td class="title">DSLAM-Arm.(m):</td><td class="field"><?php echo htmlspecialchars($rp['distarm']); ?></td>
+		<td class="title">DSLAM-Caja(m):</td><td class="field"><?php echo htmlspecialchars($rp['distcaja']); ?></td>
+	</tr>
+	<tr>
+		<td class="title">Vel. Max BA:</td><td class="field"><?php echo htmlspecialchars($rp['velmaxba']); ?></td>
+	</tr>
+	<tr>
+		<td class="title">Observaciones:</td><td class="field"  colspan="3"><?php echo htmlspecialchars($rp['notas_ing']); ?></td>
+	</tr>
+</table>
+<?php } ?>
