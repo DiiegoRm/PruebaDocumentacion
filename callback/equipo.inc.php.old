@@ -1,0 +1,221 @@
+<?php
+ob_start();
+include_once "../includes/session.php";
+sessionCheck();
+include_once "../includes/database.php";
+include_once "../includes/global.php";
+require_once "../includes/user.class.inc.php";
+include_once "../includes/static.inc.php";
+
+switch($_REQUEST["mode"]) {
+    case 'search':
+
+        $response = db_query("SELECT calibrado FROM equipos_ecc WHERE id = " . $_POST['chkLocID'][0]);
+        $data = mysqli_fetch_array($response);
+        echo json_encode(["Calibrado" => $data[0]]);
+    break;
+    case 'files':
+        $id=isset ($_POST['id'])?$_POST['id']:"";
+        $name=isset ($_POST['name'])?$_POST['name']:"";
+        $target=isset ($_POST['target'])?$_POST['target']:"";
+        $file = $id."_".$target;
+        $appuser = getAppUser();
+
+        $newTarget = explode(".",$target);
+
+        if(in_array($newTarget[1], $EXTENSIONS)){
+            echo "No se permite extension .".$newTarget[1];die();
+        }else{
+            if (copy(UPLOAD_TMP_DIR . DIRECTORY_SEPARATOR. basename($target), EQUIPOS_FILE_PATH . DIRECTORY_SEPARATOR . basename($file))) {
+                $sql = "INSERT INTO adjuntosequipos(idequipo,titulo,archivo,create_date,idusuario) VALUES($id,'$name','$file', now(),$appuser->uid)";
+                $sql_update = db_query($sql,true);
+                unlink(UPLOAD_TMP_DIR. DIRECTORY_SEPARATOR . basename($target));
+                echo "OK";
+            }
+            else{
+                echo "No fue posible subir el archivos " . htmlspecialchars($name);
+            }
+        }
+    break;
+    case 'find':
+        $response = db_query("SELECT te.* FROM tipoequipo te JOIN marca m ON m.id = te.marca_id WHERE m.id = $_POST[id]");
+        $datos = [];
+        $datos = "<option value=''>---SELECCIONE---</option>";
+        while($data = mysqli_fetch_array($response)){
+            $datos .= "<option value='".$data['id']."'>".$data['nombre']."</option>";
+        }
+        echo json_encode([$datos]);
+    break;
+    case 'findDepto':
+        $response = db_query("SELECT dp.id, dp.nombre, dp.active FROM contratos con INNER JOIN zonaxdepto zon ON con.idzona = zon.idzona INNER JOIN deptos dp ON dp.id = zon.iddepto WHERE con.ideecc = $_POST[id]");
+        $datos = null;
+        while($data = mysqli_fetch_array($response)){
+            $datos .= "<label><input type='checkbox' name='txtDept[]' value='" . $data['id'] . "'/>&nbsp;" . $data['nombre'] . "</label>";
+        }
+        echo json_encode([$datos]);
+    break;
+    case 'auditoria':
+        try{
+            require_once '../includes/PHPExcel/PHPExcel.php';
+
+            $objPHPExcel = new PHPExcel();
+
+            $objPHPExcel->setActiveSheetIndex(0)
+                        
+                        ->setCellValue('A1', 'EECC')
+                        ->setCellValue('B1', 'DEPARTAMENTO')
+                        ->setCellValue('C1', 'FECHA REGISTRO')
+                        ->setCellValue('D1', 'FUNCIONALIDAD')
+                        ->setCellValue('E1', 'MARCA')
+                        ->setCellValue('F1', 'SERIAL')
+
+                        ->setCellValue('G1', 'FECHA CALIBRACION')
+                        ->setCellValue('H1', 'FECHA VENCIMIENTO')
+                      
+                        ->setCellValue('J1', 'ESTADO EL REGISTRO')
+                        ->setCellValue('K1', 'FECHA AUDITORIA')
+                        ->setCellValue('L1', 'ESTADO FISICO')
+                        ->setCellValue('M1', 'REVISION CERTIFICADO')
+                        ->setCellValue('N1', 'OBSERVACIONES')
+                        ->setCellValue('O1', 'HALLAZGOS')
+                        ->setCellValue('P1', 'SOPORTE/EVIDENCIA')
+                        ->setCellValue('Q1', 'RESULTADO AUDITORIA')
+                        ->setCellValue('R1', 'REPRESENTANTE')
+
+
+                        ->setCellValue('S1', 'USUARIO AUDITOR')
+                        ->setCellValue('T1', 'NUMERO DE AUDITORIAS')
+                        ->setCellValue('U1', 'PLAN DE ACCION')
+                        ->setCellValue('V1', 'ESTADO SOLUCIONADO')
+                        ->setCellValue('W1', 'FECHA SOLUCIONADO');
+                        
+                        
+                        
+                        //->setCellValue('S1', 'ANALISTA');
+
+            $between = "";
+            if(!empty($_POST['txtFechaDesde']) && !empty($_POST['txtFechaHasta'])){
+                $between = "BETWEEN '$_POST[txtFechaDesde] 00:00:00' AND '$_POST[txtFechaHasta] 23:59:59'";
+            }
+
+            $sqlEecc = "SELECT ge.*, sa.*, numero_auditorias
+            FROM (
+              SELECT eea.id id_eea, GROUP_CONCAT(dp.nombre) depto_concat, ee.nombre empresa, ecc.create_date registro, m.nombre marca, te.nombre funcionalidad,eea.foto fotos,
+                ecc.calibrado certificado_fotos, ecc.fecha_calibracion fecha_calibracion, ecc.fecha_vencimiento fecha_vencimiento, ecc.active, 
+                ecc.detalle, eea.*, u.nombre
+              FROM equipos_ecc_auditado eea 
+              JOIN equipos_ecc ecc ON ecc.id = eea.equipo_id
+              INNER JOIN tipoequipo te ON ecc.funcionalidad = te.id 
+              INNER JOIN eecc ee ON ee.id = ecc.eecc_id 
+              INNER JOIN marca m ON m.id = ecc.marca_id
+              LEFT JOIN equipos_depto eqd ON ecc.id = eqd.equipo_id 
+              LEFT JOIN deptos dp ON eqd.depto_id = dp.id
+              JOIN usuarios u ON eea.usuario_id = u.id 
+              WHERE eea.create_date $between
+              GROUP BY eea.id
+            ) ge 
+            LEFT JOIN seguimiento_auditoria sa ON ge.id = sa.id_auditoria
+            LEFT JOIN (
+              SELECT equipo_id, COUNT(*) AS numero_auditorias
+              FROM equipos_ecc_auditado
+              WHERE create_date $between
+	      GROUP BY equipo_id
+            ) auditorias ON ge.equipo_id = auditorias.equipo_id;";
+        
+
+            $resultEecc = db_query($sqlEecc, true);
+            
+            $i = 2;
+            if(mysqli_num_rows($resultEecc) <= 0){
+                echo json_encode(array("msg" => "No hay resultados dentro del periodo seleccionado", "code" => http_response_code(405), "url" => TEMP_URL));
+                exit();
+            }
+            while($row = mysqli_fetch_array($resultEecc)){
+                $link = "Sin imagen";
+                $text ="Sin Evidencia/Reporte";
+                $styleLink = array(
+                    'font' => array(
+                        'color' => array('rgb' => '000000'),
+                        
+                    )
+                );
+               
+                if(($row['fotos']) != "NULL" ){
+                    $link = 'https://'.$_SERVER['HTTP_HOST'].dirname(dirname($_SERVER['PHP_SELF'])).'/'.'index.php?menu=208&mode=foto&foto='.$row['id_eea'];
+                    $text ="Ver Evidencia/Reporte";
+                    $styleLink = array(
+                        'font' => array(
+                            'color' => array('rgb' => '0000FF'),
+                            'underline' => 'single'
+                        )
+                    );
+                }
+
+              
+                        
+             
+             
+                $objPHPExcel->getActiveSheet()->getStyle('P'.$i)->applyFromArray($styleLink);
+                        
+                // Agregar hipervínculo a la celda
+                $objPHPExcel->getActiveSheet()->getCell('P'.$i)->getHyperlink()->setUrl($link);
+                $objPHPExcel->getActiveSheet()->setCellValue('P'.$i, $text);
+                        
+                // Establecer los demás valores en las celdas correspondientes
+                $objPHPExcel->setActiveSheetIndex(0)
+                    ->setCellValue('A'.$i, $row['empresa'])
+                    ->setCellValue('B'.$i, $row['depto_concat'])
+                    ->setCellValue('C'.$i, $row['registro'])
+                    ->setCellValue('D'.$i, $row['funcionalidad'])
+                    ->setCellValue('E'.$i, $row['marca'])
+                    ->setCellValue('F'.$i, $row['serial'])
+                    ->setCellValue('G'.$i, $row['fecha_calibracion'])
+                    ->setCellValue('H'.$i, $row['fecha_vencimiento'])
+                   
+                    ->setCellValue('J'.$i, $row['active'])
+                    ->setCellValue('K'.$i, $row['create_date'])
+                    ->setCellValue('L'.$i, $row['estado'])
+                    ->setCellValue('M'.$i, $row['revisionCertificado'])
+                    ->setCellValue('N'.$i, $row['observaciones'])
+                    ->setCellValue('O'.$i, $row['hallazgo'])
+                    
+                    ->setCellValue('Q'.$i, $row['auditado'])
+                    ->setCellValue('R'.$i, $row['representante'])
+                    ->setCellValue('S'.$i, $row['nombre'])
+                    ->setCellValue('T'.$i, $row['numero_auditorias'])
+                    ->setCellValue('U'.$i, $row['descripcion'])
+                    ->setCellValue('V'.$i, $row['estado'])
+                    ->setCellValue('W'.$i, $row['fecha_seguimiento']);
+                $i++;
+            }
+            
+            
+            foreach(range('A', 'R') as $col){
+                $objPHPExcel->getActiveSheet()->getColumnDimension($col)->setAutosize(true);
+            }
+
+            $style = array(
+                'alignment' => array(
+                    'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_LEFT,
+                )
+            );
+
+            $objPHPExcel->getActiveSheet()->getDefaultStyle()->applyFromArray($style);
+
+            $objPHPExcel->getActiveSheet()->setTitle('Reporte de equipos');
+            $objPHPExcel->setActiveSheetIndex(0);
+
+
+            $archivo = '../data/files/tmp/Reporte.xls';
+            $objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel5');
+            $objWriter->save($archivo);
+
+            echo json_encode(array("msg" => "Su reporte sera descargado en un momento", "code" => http_response_code(200), "url" => TEMP_URL));
+
+        }catch(Exception $e){
+            echo json_encode(array("msg" => "No se ha podido generar el Reporte de ejecución de auditorías, por favor comunicarse con el administrador de GestOT" . $e->getMessage(), "code" => http_response_code(405)));
+        }
+
+    break;
+} // END SWITCH
+?>

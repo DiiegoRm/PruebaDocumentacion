@@ -1,0 +1,130 @@
+<?php
+ob_start();
+include_once "../includes/session.php";
+sessionCheck();
+include_once "../includes/database.php";
+include_once "../includes/global.php";
+require_once "../includes/user.class.inc.php";
+include_once "../includes/static.inc.php";
+include_once "../includes/PHPExcel/PHPExcel.php";
+
+switch($_REQUEST["mode"]) {
+
+    case 'findContrato':
+        $response = db_query("SELECT DISTINCT con.id, con.numero AS nombre, con.active FROM contratos con INNER JOIN ipc pc ON pc.idcontrato = con.id WHERE con.ideecc = " . $_POST['id']);
+        $datos = [];
+        $datos = "<option value=''>---SELECCIONE---</option>";
+        while($data = mysqli_fetch_array($response)){
+            $datos .= "<option value='".$data['id']."'>".$data['nombre']."</option>";
+        }
+        echo json_encode([$datos]);
+    break;
+    case 'import':
+        $file = isset($_FILES['files']) ? $_FILES['files'] : ""; 
+        $fileTmpPath   = $file['tmp_name'];
+        $fileName      = $file['name'];
+        $fileSize      = $file['size'];
+        $fileType      = $file['type'];
+        $fileNameCmps  = explode(".", $fileName);
+        $fileExtension = strtolower(end($fileNameCmps));
+        $allowedfileExtensions = array('xls', 'xlsx');
+        if(in_array($fileExtension, $allowedfileExtensions)) {
+            if(copy($fileTmpPath, UPLOAD_TMP_DIR . DIRECTORY_SEPARATOR . $fileName)) {                
+                $_SESSION['fileName'] = $fileName;
+                echo 'Ok';
+            } else {
+                echo 'Documento no ha podido ser procesado.';
+            }
+        } else {
+            echo 'Documento no permitido debe ser xls o xlsx.';
+        }        
+    break;
+    case 'process':
+        $tmpfname = UPLOAD_TMP_DIR . DIRECTORY_SEPARATOR . $_SESSION['fileName'];
+        $excelReader = PHPExcel_IOFactory::createReaderForFile($tmpfname);
+        $excelObj = $excelReader->load($tmpfname);
+		$worksheet = $excelObj->getSheet(0);
+		$lastRow = $worksheet->getHighestRow();        
+        
+        $errors = Array();
+        $success = Array();
+        $file = fopen(LOG_FILE_PATH . DIRECTORY_SEPARATOR . "imp_usuario.log", "w");
+		for($row = 2; $row <= $lastRow; $row++) {             
+            $cellA = $worksheet->getCell('A'.$row)->getValue();
+            $cellB = $worksheet->getCell('B'.$row)->getValue();
+            $cellC = $worksheet->getCell('C'.$row)->getValue();
+            $cellD = $worksheet->getCell('D'.$row)->getValue();
+            $cellE = $worksheet->getCell('E'.$row)->getValue();
+            $cellF = $worksheet->getCell('F'.$row)->getValue();
+
+            /* Configuracion */
+
+            $cellG = $worksheet->getCell('G'.$row)->getValue();
+            if($cellG == "ORDENES")
+                $cellG = 'OT';
+            if($cellG == "VIABILIDAD")
+                $cellG = 'VB';
+
+            $cellH = $worksheet->getCell('H'.$row)->getValue();
+            $cellH = explode("|", $cellH);
+            $cellH = $cellH[0];
+
+            $cellI = $worksheet->getCell('I'.$row)->getValue();
+            $cellI = explode("|", $cellI);
+            $cellI = $cellI[0];
+
+            $cellJ = $worksheet->getCell('J'.$row)->getValue();
+            $cellJ = explode("|", $cellJ);
+            $cellJ = $cellJ[0];
+
+            $cellK = $worksheet->getCell('K'.$row)->getValue();
+            $cellK = explode("|", $cellK);
+            $cellK = $cellK[0];
+
+            $cellL = $worksheet->getCell('L'.$row)->getValue();
+            $cellL = explode("|", $cellL);
+            $cellL = $cellL[0];
+
+            $cellM = $worksheet->getCell('M'.$row)->getValue();
+            $cellM = explode("|", $cellM);
+            $cellM = $cellM[0];
+
+            $cellN = $worksheet->getCell('N'.$row)->getValue();
+            $cellN = explode("|", $cellN);
+            $cellN = $cellN[0];
+
+            $cellO = $worksheet->getCell('O'.$row)->getValue();
+            $cellO = explode("|", $cellO);
+            $cellO = $cellO[0];
+
+                if(($cellA != '') && ($cellB != '') && ($cellC != '') && ($cellD != '')) {
+                    $response = db_query("select id from usuarios where id = '".$cellA."' or login = '".$cellB."'");
+                    while($data = mysqli_fetch_array($response)){
+                        $validacion = $data['id'];
+                    }
+                    if (!empty($validacion)){
+                        array_push($errors, $row . '| Error - El usuario o el numero de documento ya existen (Usuario = '. $cellB .', Nombre = '. $cellC .').');
+                    }else{
+                        $sql_update = db_query("INSERT INTO `usuarios` 
+                        (`id`,`login` , `nombre` , `password`, `idgrupo`,telefono,email,User_LDAP) 
+                        VALUES ($cellA, '$cellB', '$cellC', MD5($cellA), $cellF, $cellD, '$cellE', '$cellB')");
+
+                        $sql = "INSERT INTO configuracion VALUES(NULL,'$cellG',$cellA,$cellO,$cellJ,$cellH,$cellI,$cellK,$cellL,$cellM,$cellN)";
+                        db_query($sql);
+                        $message = $row . '| Success - Se ha el usuario satisfactoriamente (Usuario = '. $cellB .', Nombre = '. $cellC .').';
+                        array_push($success, $message);
+                    }
+                } else {
+                    $message = $row . '| Error - Uno de los valores está vacio (Usuario = '. $cellB .', Nombre = '. $cellC .').';
+                    array_push($errors, $row . '| Error - Uno de los valores está vacio (Usuario = '. $cellB .', Nombre = '. $cellC .').');
+                }
+            fwrite($file, $message . "\r\n");
+		}
+        
+        unlink($tmpfname);
+        $result = array("success" => $success, "errors" =>$errors);
+        echo json_encode($result);
+
+    break;
+}
+?>

@@ -1,0 +1,302 @@
+<?php
+ob_start();
+include_once "../includes/session.php";
+sessionCheck();
+include_once "../includes/database.php";
+include_once "../includes/global.php";
+require_once '../includes/user.class.inc.php';
+require_once '../integrations/CronosIntegration.php';
+switch($_REQUEST["mode"]){
+case 'eecc':
+	$id = getVal($_POST['txtId'],"null");//
+	$id=mysqli_real_escape_string($dbsgp,$id);//KIUWAN
+	$user = getAppUser();
+	$ideecc = getVal($_POST['txtNewEECC'],"null");//
+	$ideecc=mysqli_real_escape_string($dbsgp,$ideecc);//KIUWAN
+	$idestado = getVal($_POST['txtEstadoVB'],"null");//
+	$idestado=mysqli_real_escape_string($dbsgp,$idestado);//KIUWAN
+
+	$sql = "UPDATE `viabilidades` SET ideecc=$ideecc,modify_user=$user->uid,modify_date=CURRENT_TIMESTAMP WHERE id=$id";
+	if (db_query($sql,true) > 0){
+		db_query("DELETE FROM bandejasvb WHERE idviabilidad=$id");
+		db_query("INSERT INTO bandejasvb(idviabilidad, idgrupo) VALUES($id,$GRP_EECC)",true);
+		db_query("INSERT INTO seguimientovb(idviabilidad,idestadovb,idusuario,notas) VALUES ($id,$idestado,$user->uid,'EECC Asignada')",true);
+
+		$eecc = getNameById("eecc",$ideecc);
+		$numero = "VB-".padZeroLeft($id,8);
+		echo "OK";
+		/*require_once '../includes/send.mail.inc.php';
+		$mail = new SgpMail("VB-EECC");
+		$mail->msgSubject = "Asignacion EECC Viabilidad [$numero]";
+		$mail->msgMessage= "Buen Dia,<br /> Se ha asignado la Viabilidad Numero <b>$numero a $eecc</b><br />Atentamente,<br />Sistema Gestion de Proyectos.";
+		$mail->send($user);*/
+	}
+	else echo "No fue posible asignar el EECC.";
+	break;
+case 'files':
+	$id=isset ($_POST['id'])?$_POST['id']:"";
+	$name=isset ($_POST['name'])?$_POST['name']:"";
+	$target=isset ($_POST['target'])?$_POST['target']:"";//
+	$target=mysqli_real_escape_string($dbsgp,$target);//KIUWAN
+	$file = $id."_".$target;
+	$appuser = getAppUser();
+
+	if (copy(UPLOAD_TMP_DIR. DIRECTORY_SEPARATOR. basename($target),VB_FILE_PATH. DIRECTORY_SEPARATOR .basename($file))) {
+		$sql = "INSERT INTO adjuntosvb(idviabilidad,titulo,archivo,create_user) VALUES($id,'$name','$file',$appuser->uid)";
+		$sql_update = db_query($sql,true);
+		unlink(realpath(UPLOAD_TMP_DIR. DIRECTORY_SEPARATOR .basename($target)));
+		echo "OK";
+	}
+	else{
+		echo htmlspecialchars("No fue posible subir el archivo $name");
+	}
+ break;
+ case 'obs':
+	$id = getVal($_POST['txtId'],"null");//
+	$id=mysqli_real_escape_string($dbsgp,$id);//KIUWAN
+	$user = getAppUser();
+	$obs = getPostStr('txtFrmxObs');
+	$idestado = getVal($_POST['txtEstadoVB'],"null");//
+	$idestado=mysqli_real_escape_string($dbsgp,$idestado);//KIUWAN
+
+	$sql = "INSERT INTO seguimientovb(idviabilidad,idestadovb,idusuario,notas) VALUES ($id,$idestado,$user->uid,$obs)";
+	if (db_query($sql,true) > 0){
+		db_query("UPDATE `viabilidades` SET modify_user=$user->uid,modify_date=CURRENT_TIMESTAMP WHERE id=$id",true);
+		echo "OK";
+	}
+	else echo "No fue posible adicionar la Observacion.";
+	break;
+ case 'revision':
+	$id = getVal($_POST['txtId'],"null");//
+	$id=mysqli_real_escape_string($dbsgp,$id);//KIUWAN
+	$user = getAppUser();
+	$obs = getPostStr('txtFrmObs');
+
+	$q = db_query("SELECT u.idgrupo, u.id FROM viabilidades v, usuarios u WHERE v.id=$id AND v.create_user=u.id LIMIT 1",true);
+	$row = mysqli_fetch_array($q);
+	if (count($row)>0) {
+		$idbandeja = $row['idgrupo'];
+		$idasignado = $row['id'];
+	}
+
+	$sql = "UPDATE `viabilidades` SET idestadovb=$VB_ST_REVISION,notas=$obs,modify_user=$user->uid,`modify_date`=CURRENT_TIMESTAMP WHERE `id`=$id";
+	if (db_query($sql,true) > 0){
+		db_query("DELETE FROM bandejasvb WHERE idviabilidad=$id",true);
+		db_query("INSERT INTO bandejasvb(idviabilidad, idgrupo,idusuario) VALUES($id,$idbandeja,$idasignado)",true);
+		db_query("INSERT INTO bandejasvb(idviabilidad, idgrupo) VALUES($id,$GRP_CONSTRUCCION_FO)",true);
+		echo "OK";
+	}
+	else echo "No fue posible enviar a Revision Comercial.";
+	break;
+ case 'atender':
+	$id = getVal($_POST['txtId'],"null");//
+	$id=mysqli_real_escape_string($dbsgp,$id);//KIUWAN
+	$tipo = getVal($_POST['txtFrmTipoVB'],"null");
+	$user = getAppUser();
+	$obs = getPostStr('txtFrmObs');
+	$fecha_requerida= $_POST['txtRequerida'];//
+	$fecha_requerida=mysqli_real_escape_string($dbsgp,$fecha_requerida);//KIUWAN
+
+	$area = getNameById("tipovb",$txtTipoVB,"area");
+	$idbandeja = ($area===$VB_TAREA_ING)?$GRP_INGENIERIA:$GRP_EECC;
+
+$idorden = getSQLValue("SELECT idorden FROM viabilidades WHERE id=$id");
+
+	if ($idorden <> '') {
+	$sql = "UPDATE `viabilidades` SET idestadovb=$VB_ST_EJECUCION,fecha_requerida='$fecha_requerida',notas=$obs,modify_user=$user->uid,`modify_date`=CURRENT_TIMESTAMP WHERE `id`=$id";
+	if (db_query($sql,true) > 0){
+		db_query("DELETE FROM bandejasvb WHERE idviabilidad=$id",true);
+		db_query("INSERT INTO bandejasvb(idviabilidad, idgrupo) VALUES($id,$GRP_INGENIERIA)",true);
+		db_query("INSERT INTO bandejasvb(idviabilidad, idgrupo) VALUES($id,$GRP_CONSTRUCCION_FO)",true);
+		echo "OK";
+
+	} } else {
+
+	$sql = "UPDATE `viabilidades` SET idestadovb=$VB_ST_ESTUDIO,fecha_requerida='$fecha_requerida',notas=$obs,modify_user=$user->uid,`modify_date`=CURRENT_TIMESTAMP WHERE `id`=$id";
+	if (db_query($sql,true) > 0){
+		db_query("DELETE FROM bandejasvb WHERE idviabilidad=$id",true);
+		db_query("INSERT INTO bandejasvb(idviabilidad, idgrupo) VALUES($id,$idbandeja)",true);
+		db_query("INSERT INTO bandejasvb(idviabilidad, idgrupo) VALUES($id,$GRP_CONSTRUCCION_FO)",true);
+		echo "OK";
+	}
+	else echo "No fue posible enviar Atender Pendientes.";
+}
+	break;
+case 'retornar':
+	$id = getVal($_POST['txtId'],"null");//
+	$id=mysqli_real_escape_string($dbsgp,$id);//KIUWAN
+	$tipo = getVal($_POST['txtFrmTipoVB'],"null");
+	$user = getAppUser();
+	$obs = getPostStr('txtFrmObs');
+	$fecha_requerida= $_POST['txtRequerida'];//
+	$fecha_requerida=mysqli_real_escape_string($dbsgp,$fecha_requerida);//KIUWAN
+	$area = getNameById("tipovb",$txtTipoVB,"area");
+	$idbandeja = ($area===$VB_TAREA_ING)?$GRP_INGENIERIA:$GRP_EECC;
+
+	$sql = "UPDATE `viabilidades` SET idestadovb=$VB_ST_ESTUDIO,fecha_requerida='$fecha_requerida',notas=$obs,modify_user=$user->uid,`modify_date`=CURRENT_TIMESTAMP WHERE `id`=$id";
+	if (db_query($sql,true) > 0){
+		db_query("DELETE FROM bandejasvb WHERE idviabilidad=$id",true);
+		db_query("INSERT INTO bandejasvb(idviabilidad, idgrupo) VALUES($id,$idbandeja)",true);
+		db_query("INSERT INTO bandejasvb(idviabilidad, idgrupo) VALUES($id,$GRP_CONSTRUCCION_FO)",true);
+		echo "OK";
+	}
+	else echo "No fue posible enviar Atender Pendientes.";
+	break;
+case 'Pago':
+	$id = getVal($_POST['txtId'],"null");//
+	$id=mysqli_real_escape_string($dbsgp,$id);//KIUWAN
+	$periodo = date("Ym");
+    $user = getAppUser();
+
+	$sql = "UPDATE `viabilidades` SET pago=$VB_ST_PAGO,periodo='$periodo',modify_user=$user->uid,`modify_date`=CURRENT_TIMESTAMP WHERE `id`=$id";
+	if (db_query($sql,true) > 0){
+		echo "OK";
+	}
+	else echo "No fue posible marcar la Viabilidad como Paga.";
+	break;
+
+
+case 'No_Pago':
+	$id = getVal($_POST['txtId'],"null");//
+	$id=mysqli_real_escape_string($dbsgp,$id);//KIUWAN
+	$periodo = date("Ym");
+    $user = getAppUser();
+
+	$sql = "UPDATE `viabilidades` SET pago=$VB_ST_CANCPAGO,periodo='$periodo',modify_user=$user->uid,`modify_date`=CURRENT_TIMESTAMP WHERE `id`=$id";
+	if (db_query($sql,true) > 0){
+		echo "OK";
+	}
+	else echo "No fue posible marcar la Viabilidad como No paga.";
+	break;
+
+
+
+
+
+
+case 'ppto':
+	$id = getVal($_POST['txtId'],"null");//
+	$id=mysqli_real_escape_string($dbsgp,$id);//KIUWAN
+	$txtIdPpto = getVal($_POST['txtIdPpto'],"null");//
+	$txtIdPpto=mysqli_real_escape_string($dbsgp,$txtIdPpto);//KIUWAN
+	$obs = getPostStr('txtFrmPPObs');
+	$user = getAppUser();
+
+	echo     $ma =  is_null($_REQUEST['pptoMO']) ?  0 : $_REQUEST['pptoMO'];
+	echo     $mo =  is_null($_REQUEST['pptoMA']) ?  0 : $_REQUEST['pptoMA'];
+
+	 $total = $ma + $mo;
+
+	$cronos = new Cronos();
+	$cronos ->enviarPresupuesto($id,$txtIdPpto,$total,$ma,$mo);
+
+
+    $q = db_query("SELECT u.idgrupo FROM viabilidades v, usuarios u WHERE v.id=$id AND v.create_user=u.id LIMIT 1",true);
+$row = mysqli_fetch_array($q);
+	if (count($row)>0) {
+		$idgrupoc = $row['idgrupo'];
+		}
+
+	$sql = "UPDATE `viabilidades` SET idpresupuesto=$txtIdPpto,";
+	$sql .= "idestadovb=$VB_ST_APROBACION,notas_ing=$obs,fecha_presupuesto=CURRENT_DATE,notas='Presupuesto Cargado',";
+	$sql .= "modify_user=$user->uid,`modify_date`=CURRENT_TIMESTAMP WHERE `id`=$id";
+	if (db_query($sql,true) > 0){
+		db_query("DELETE FROM bandejasvb WHERE idviabilidad=$id",true);
+		db_query("INSERT INTO bandejasvb(idviabilidad, idgrupo) VALUES($id,$GRP_SEG_CIERRE)",true);
+        	db_query("INSERT INTO bandejasvb(idviabilidad, idgrupo) VALUES($id,$idgrupoc)",true);
+		db_query("INSERT INTO bandejasvb(idviabilidad, idgrupo) VALUES($id,$GRP_CONSTRUCCION_FO)",true);
+		echo "OK";
+	}
+	else echo "No fue posible Cargar Presupuesto a la Viabilidad.";
+	break;
+ case 'detail':
+	$id = getVal($_POST['id'],"null");//
+	$id=mysqli_real_escape_string($dbsgp,$id);//KIUWAN
+	$sql = "SELECT di.nombre distribuidor,p.nombre pop,armario,cable,parprim,parsec,v.nombre velmaxba,distarm,dd.nombre distcaja,tp.tmo,tp.tma FROM presupuesto o LEFT JOIN distribuidores di ON o.iddistribuidor=di.id LEFT JOIN pops p ON o.idpop=p.id LEFT JOIN velocidad v ON o.idvelmaxba=v.id LEFT JOIN distancia dd ON o.iddistcaja=dd.id LEFT JOIN totalesxpresupuesto tp ON tp.idpresupuesto=o.id WHERE o.id=$id";
+	$query =  db_query($sql,true);
+	if (mysqli_num_rows($query) > 0){
+		$result = "OK";
+		if ($row = mysqli_fetch_array($query)) {
+			$result.="|";
+			$result.=$row['tmo']."^";
+			$result.=$row['tma']."^";
+			$result.=$row['distribuidor']."^";
+			$result.=$row['pop']."^";
+			$result.=$row['armario']."^";
+			$result.=$row['cable']."^";
+			$result.=$row['parprim']."^";
+			$result.=$row['parsec']."^";
+			$result.=$row['distarm']."^";
+			$result.=$row['distcaja']."^";
+			$result.=$row['velmaxba'];
+		}
+		echo htmlspecialchars($result);
+	}
+	else echo "NO";
+	break;
+ case 'aplazar':
+	$id = getVal($_POST['txtId'],"null");//
+	$id=mysqli_real_escape_string($dbsgp,$id);//KIUWAN
+	$user = getAppUser();
+	$obs = getPostStr('txtFrm1Obs');
+
+	$sql = "UPDATE `viabilidades` SET idestadovb=$VB_ST_APLAZADA,notas=$obs,modify_user=$user->uid,`modify_date`=CURRENT_TIMESTAMP WHERE `id`=$id";
+	if (db_query($sql,true) > 0){
+		echo "OK";
+	}
+	else echo "No fue posible Aplazar la Viabilidad.";
+	break;
+ case 'cancelar':
+	$id = getVal($_POST['txtId'],"null");//
+	$id=mysqli_real_escape_string($dbsgp,$id);//KIUWAN
+	$user = getAppUser();
+	$obs = getPostStr('txtFrm2Obs');
+	$periodo = date("Ym");
+
+	$sql = "UPDATE `viabilidades` SET idestadovb=$VB_ST_CANCELADA,pago=$VB_ST_CANCPAGO,periodo='$periodo',notas=$obs,modify_user=$user->uid,`modify_date`=CURRENT_TIMESTAMP WHERE `id`=$id";
+	if (db_query($sql,true) > 0){
+		db_query("DELETE FROM bandejasvb WHERE idviabilidad=$id",true);
+		echo "OK";
+	}
+	else echo "No fue posible Cancelar la Viabilidad.";
+	break;
+ case 'cerrar':
+	$id = getVal($_POST['txtId'],"null");//
+	$id=mysqli_real_escape_string($dbsgp,$id);//KIUWAN
+	$user = getAppUser();
+	$obs = getPostStr('txtFrm2Obs');
+
+	$sql = "UPDATE `viabilidades` SET idestadovb=$VB_ST_CERRAR,notas=$obs,modify_user=$user->uid,`modify_date`=CURRENT_TIMESTAMP WHERE `id`=$id";
+	if (db_query($sql,true) > 0){
+		db_query("DELETE FROM bandejasvb WHERE idviabilidad=$id",true);
+		echo "OK";
+	}
+	else echo "No fue posible Cerrar la Viabilidad.";
+	break;
+ case 'aprobar':
+	$id = getVal($_POST['txtId'],"null");//
+	$id=mysqli_real_escape_string($dbsgp,$id);//KIUWAN
+	$user = getAppUser();
+	$obs = getPostStr('txtFrm3Obs');
+	$tipo = getStrVal($_POST['txtTipoVB'],"null");
+	$area = getNameById("tipovb",$tipo,"area");
+	$idbandeja = ($area===$VB_TAREA_ING)?$GRP_INGENIERIA:$GRP_OP_CENTRAL;
+
+    $q = db_query("SELECT u.idgrupo FROM viabilidades v, usuarios u WHERE v.id=$id AND v.create_user=u.id LIMIT 1",true);
+		$row = mysqli_fetch_array($q);
+	if (count($row)>0) {
+		$idgrupoc = $row['idgrupo'];
+		}
+	$sql = "UPDATE `viabilidades` SET idestadovb=$VB_ST_APROBADA,notas=$obs,modify_user=$user->uid,`modify_date`=CURRENT_TIMESTAMP WHERE `id`=$id";
+	if (db_query($sql,true) > 0){
+		db_query("DELETE FROM bandejasvb WHERE idviabilidad=$id",true);
+		db_query("INSERT INTO bandejasvb(idviabilidad, idgrupo) VALUES($id,$idbandeja)",true);
+		db_query("INSERT INTO bandejasvb(idviabilidad, idgrupo) VALUES($id,$GRP_CONSTRUCCION_FO)",true);
+        if ($idgrupoc==1||$idgrupoc==5||$idgrupoc==7||$idgrupoc==9||$idgrupoc==10||$idgrupoc==11||$idgrupoc==12){
+            db_query("INSERT INTO bandejasvb(idviabilidad, idgrupo) VALUES($id,$idgrupoc)",true);
+        }
+		echo "OK";
+	}
+	else echo "No fue posible enviar a Aprobar la Viabilidad.";
+} // end switch
+?>
