@@ -1,0 +1,42 @@
+input[type=date]{
+    width: 392px;
+    background: none repeat scroll 0 0 #EAF4FD;
+    height: 22px;
+    color: #2E6E9E;
+    border: 1px solid #c5dbec;
+    font-size: 11px;
+    border-radius: 4px;
+    -o-border-radius: 4px;
+    -moz-border-radius: 4px;
+    -icab-border-radius: 4px;
+    -khtml-border-radius: 4px;
+    -webkit-border-radius: 4px;
+}
+table.data-ro td.title {
+    width: 103px;
+    text-align: right;
+    color: #056A96;
+}
+#txtFuncionalidad, #txtEECC, #txtMarca, #txtDepto{
+    width: 100% !important;
+}
+table.data-ro td.input {
+    text-align: left;
+    min-width: 200px;
+}
+label {
+    display: block;
+    padding-left: 15px;
+    text-indent: -15px;
+  }
+
+  input {
+    width: 13px;
+    height: 13px;
+    padding: 0;
+    margin:0;
+    vertical-align: bottom;
+    position: relative;
+    top: -1px;
+    *overflow: hidden;
+  }

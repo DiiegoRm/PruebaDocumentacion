@@ -1,0 +1,185 @@
+@charset "UTF-8";
+/* CSS Document */
+
+body {
+	
+			font:12px Arial, Helvetica, sans-serif;
+			background:url(images/fondoCielo.jpg) repeat-x;
+			background-position:-192px 0;
+	 }
+	 
+	   
+.footer   {
+			background-color:#00496d;
+			width:950px;
+			height:50px;
+			margin:auto;
+			margin-top:10px;
+			 box-shadow: 0px 0px 20px #999;
+	
+			}
+			
+.logo {
+			background:url(images/logo_telefonica.png) no-repeat;
+			width:950px;
+			height:51px;
+			margin:auto;
+			margin-top:50px;
+	
+			}
+
+.menu 		{
+	
+			width:900px;
+			height:230px;
+			margin:auto;
+			padding-top:60px;
+			color:#00496d;
+			font-family:Arial, Helvetica, sans-serif;
+			font-size:17px;
+	
+			}								 
+	 
+.container {
+			
+			width:950px;
+			margin:auto;
+			background-color:#FFF;
+			height:300px;
+			border-bottom: 2px #CCC dashed;
+			margin-top:5px;
+		    box-shadow: 0px 0px 8px #999;
+	
+		   }
+		   
+.header   {
+			background-color:#00496d;
+			width:950px;
+			height:40px;
+			margin:auto;
+			margin-top:5px;
+			color:#5ac9d6;
+			font-family:Arial, Helvetica, sans-serif;
+			font-size:26px;
+			padding-top:10px;
+			 box-shadow: 0px 0px 8px #999;
+			
+			
+			}
+			 
+.logofooter {
+	
+			background:url(images/logo_footer.gif) no-repeat;
+			width:auto;
+			float:right;
+			width:94px;
+			height:33px;
+			margin-top:8px;
+			padding-right:10px;
+			
+			}
+			
+
+.login {
+	
+				
+		  box-shadow: 5px 5px 8px #999;
+		  width:400px;
+		  height:200px;
+		  margin-top:3%;
+		  margin-left:270px;
+		  border: 1px #999 ridge;
+		  position:absolute;
+		  -webkit-border-top-right-radius: 40px;
+		  -webkit-border-bottom-left-radius: 40px;
+		  -moz-border-radius-topright: 40px;
+		  -moz-border-radius-bottomleft: 40px;
+		  border-top-right-radius: 40px;
+		  border-bottom-left-radius: 40px;
+  
+
+			
+			}		
+			
+
+.titulos {
+	font-weight:bold;
+	padding-top:13px;
+	color:#00496d;
+	height:35px;
+	background-color:#e7e7e7;
+	font-family:Arial, Helvetica, sans-serif;
+	font-size:16px;
+	-webkit-border-top-right-radius: 41px;
+-moz-border-radius-topright: 41px;
+border-top-right-radius: 41px;
+padding-left:30px;
+			
+			}
+			
+			
+.boton {
+	
+color:#FFF;
+font-family:Arial, Helvetica, sans-serif;
+background-color:#00496d;
+border: 1px #00496d solid;
+height:25px;
+margin-top:10px;	
+		  
+			
+			}	
+			
+.text_login	 {
+	
+	color:#00496d;
+	font-family:Arial, Helvetica, sans-serif;
+	font-size:12px;
+	padding-left:120px;
+			
+			}	
+
+.container_form_mant {
+			width:950px;
+			margin:auto;
+			background-color:#FFF;
+			height:4400px;
+			border-bottom: 2px #CCC dashed;
+			margin-top:5px;
+		    box-shadow: 0px 0px 8px #999;
+}
+			
+.form {
+	
+				
+		  box-shadow: 5px 5px 8px #999;
+		  width:880px;
+		  height:4330px;
+		  margin-top:3%;
+		  margin-left:30px;
+		  border: 1px #999 ridge;
+		  position:absolute;
+		  -webkit-border-top-right-radius: 40px;
+		  -webkit-border-bottom-left-radius: 40px;
+		  -moz-border-radius-topright: 40px;
+		  -moz-border-radius-bottomleft: 40px;
+		  border-top-right-radius: 40px;
+		  border-bottom-left-radius: 40px;
+		  color:#00496d;
+		  font-family:Arial, Helvetica, sans-serif;
+	      font-size:10px;
+		  font-weight:bold;
+		  
+  
+	 }
+	 	
+		
+.input {
+	
+		  box-shadow: 2px 2px 6px #999;
+  
+	 }	
+	 
+.textarea {
+		  box-shadow: 2px 2px 6px #999;
+	 }	
