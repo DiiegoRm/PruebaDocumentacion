@@ -1,0 +1,80 @@
+    <script type="text/javascript">
+$(function() {
+	// a workaround for a flaw in the demo system (http://dev.jqueryui.com/ticket/4375), ignore!
+	$( "#dialog:ui-dialog" ).dialog( "destroy" );
+	
+	var txtFechaDesde = $( "#txtFechaDesde" );
+    var txtFechaHasta = $( "#txtFechaHasta" );
+	var tips = $( ".validateTips" );
+	var solAprobarCtrl = true;
+
+	function updateTips( t ) {
+		tips
+			.text( t )
+			.addClass( "ui-state-highlight" );
+		setTimeout(function() {
+			tips.removeClass( "ui-state-highlight", 1500 );
+		}, 500 );
+	}
+
+	$( "#rep_auditoria" ).dialog({
+		autoOpen: false,
+		height: 350,
+		width: 500,
+		modal: true,
+		buttons: {
+			"Aceptar": function() {
+				if (solAprobarCtrl) {
+					solAprobarCtrl = false;
+					$.ajax({
+						type: "POST",
+						url: "callback/equipo.inc.php",
+						dataType: 'json',
+						data: "mode=auditoria"+
+							"&txtFechaDesde="+txtFechaDesde.val() + "&txtFechaHasta="+txtFechaHasta.val(),
+						success: function(returnData){
+							if(returnData.code == 200) {
+								let url = document.location.origin+returnData.url+"Reporte.xls";
+								window.location.href = url;
+								$( "#rep_auditoria" ).dialog( "close" );
+							}else if(returnData.code == 405){
+								alert(returnData.msg);
+							}
+						}
+					});
+				}
+			},
+			"Cancelar": function() {
+				$( this ).dialog( "close" );
+			}
+		},
+		open: function() {
+			solAprobarCtrl = true;
+			tips.text("Para generar esté reporte requerimos esta información.");
+		}
+	});
+
+    $("#txtFechaDesde").datepicker({ dateFormat: 'yy-mm-dd'});
+    $("#txtFechaHasta").datepicker({ dateFormat: 'yy-mm-dd'});
+
+	$( "#auditoria_rep" )
+		.button({icons: {primary: 'ui-icon-calculator'}})
+		.click(function(event) {
+			event.preventDefault();
+			$( "#rep_auditoria" ).dialog( "open" );
+		});
+});
+</script>
+<div id="rep_auditoria" title="REPORTE DE AUDITORIA">
+	<p class="validateTips">Para generar esté reporte requerimos esta información.</p>
+	<br class="clear"/>
+    <label class="formLabel" for="txtFechaDesde">Desde<span class="required">*</span></label>
+	<input type="text" id="txtFechaDesde" name="txtFechaDesde" readonly="readonly" value="" class="wideFormInputText"/>
+    <br class="clear"/>
+    <br class="clear"/>
+	<label class="formLabel" for="txtFechaHasta">Hasta<span class="required">*</span></label>
+	<input type="text" id="txtFechaHasta" name="txtFechaHasta" readonly="readonly" value="" class="wideFormInputText"/>
+</div>
+<button class='ui-button ui-corner-all ui-widget' type="button" id="auditoria_rep">
+    Reporte de Auditaria
+</button>

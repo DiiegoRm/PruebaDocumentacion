@@ -1,0 +1,179 @@
+<style>
+.yellow{
+	background-color: #ffc;
+	color: #FF6F6F;
+}
+</style>
+<?php
+/*include_once "../../includes/session.php";
+include_once "../../includes/global.php";
+include_once "../../includes/database.php";*/
+
+$id   	 = decrypt(getVal($_GET['id'],"0"));
+$mode 	 = getVal($_GET['mode'],"edit");
+$flag 	 = ($mode == 'show') ? false : true;
+
+/*
+* Valido que la OT esta en los estados :
+* 	$OT_ST_TERMINADA=10;
+* 	$OT_ST_ENREGISTRO=14;
+* 	$OT_ST_REGISTRADA=19;
+* 	$OT_ST_CERRADA=11;
+*/
+
+$control = false;
+
+/*
+*Consulta para condicionar el agregado de equipos, basados en el boton de temrinar obra
+*/
+
+if($idestadoot<$OT_ST_TERMINADA &&(
+    $appuser->isInState($idtipoot,"$OT_TIPO_VIABILIDAD,$OT_TIPO_INVENTARIORED,$OT_TIPO_DESIGN,$OT_TIPO_DIAGNOSTICO,$OT_TIPO_CONSTRUCCION")||
+    $appuser->isInGroup($grp_resp_movistar) || $appuser->isInGroup($grp_resp_eec) || $appuser->isAdmin())) {
+		
+		$tablaPrincipal = db_query("SELECT DISTINCT(ecc.id), ecc.serial, ee.nombre empresa, m.nombre marca, 
+		te.nombre NME, ecc.calibrado, ecc.auditado, 
+		ecc.fecha_calibracion FC, ecc.fecha_vencimiento FV, ecc.active, ecc.detalle 
+		FROM tipoequipo te 
+		JOIN equipos_ecc ecc ON ecc.funcionalidad = te.id 
+		JOIN eecc ee ON ee.id = ecc.eecc_id 
+		JOIN marca m ON m.id = ecc.marca_id 
+		JOIN tipoequipoxtipoproyecto tx ON tx.tipoequipo_id = te.id 
+		JOIN configuracion con ON con.ideecc = ecc.eecc_id 
+		WHERE ecc.id IN (SELECT equipo_id FROM equipos_depto WHERE depto_id = $iddepto) 
+		AND ecc.eecc_id = $ideecc AND tx.tipored_id = $idtipored");
+		
+		$count = mysqli_num_rows($tablaPrincipal);
+		$control = true;
+}else{
+
+	$tablaPrincipal = db_query("SELECT ecc.id, ecc.serial, ee.nombre empresa, te.nombre NME, m.nombre marca, 
+	ecc.calibrado, ecc.auditado, ecc.fecha_calibracion FC, ecc.fecha_vencimiento FV, 
+	ecc.active, ecc.detalle
+	FROM equipos_ot_terminar eqt 
+	JOIN equipos_ecc ecc ON ecc.id = eqt.id_equipo 
+	JOIN eecc ee ON ee.id = ecc.eecc_id 
+	JOIN tipoequipo te ON te.id = ecc.funcionalidad 
+	JOIN marca m ON m.id = ecc.marca_id 
+	WHERE eqt.id_ot = '$id'");
+	
+	$count = mysqli_num_rows($tablaPrincipal);
+}
+?>
+
+<table id="equipos-ro" class="ui-widget ui-widget-content" style="width: 100%">
+	<thead>
+		<tr class="ui-widget-header ">
+			<?php if($control){ ?>
+				<th></th>
+			<?php } ?>	
+			<th>ID</th>
+			<th>Empresa</th>
+			<th>Departamento</th>
+			<th>Funcionalidad</th>
+			<th>Marca</th>
+			<th>Serial</th>
+			<th>Vigencia</th>
+			<th>Auditado</th>
+			<th>Calibrado</th>
+			<th>Activo</th>
+		</tr>
+	</thead>
+	<tbody>
+	<tr style="background-color: #dddddd;">
+		<?php 
+		if($control) { 
+			echo "<td ><input id='chkNot' type=\"checkbox\" class=\"checkbox\" name=\"chkLocID[]\" value=\"0\" onclick='checkNot()' /></td>\n"; ?>
+		<td>0</td>
+		<td colspan="9" >No aplica</td>
+		<?php 
+		} ?>
+	</tr>
+	<?php 
+	if ($count > 0) {
+		while($row = mysqli_fetch_array($tablaPrincipal)){ 
+			$fechaVen = new DateTime($row['FV']);
+			$fechaActual = new DateTime(date('Y/m/d'));
+			$vigencia = date_diff($fechaVen, $fechaActual)->format('%a');
+
+			if($vigencia <= 60)
+				$style = "yellow";
+			else	
+				$style = "green";
+
+			?>
+			<tr class="<?php echo $style;?>">
+			<?php
+
+			if($control){
+				if(($fechaVen >= $fechaActual) and $row['calibrado'] == "Si" and $row['active'] == "Si" and ($row['auditado'] == "OK" or $row['auditado'] == "Pendiente" or $row['auditado'] == "NOK-Solucionada")){
+					echo "<td ><input id='chk' type=\"checkbox\" class=\"checkbox chk\" name=\"chkLocID[]\" value=\"".htmlspecialchars($row['id'])."\" /></td>\n";
+					?>
+					<td><?php echo $row['id']?></td>
+					<td><?php echo $row['empresa']?></td>
+					<td>
+						<?php 
+							$query2 = db_query("SELECT DISTINCT(dep.id), dep.nombre FROM equipos_depto eqt INNER JOIN deptos dep ON dep.id = eqt.depto_id WHERE eqt.equipo_id = " . $row['id']);  
+							$numRows2 = mysqli_num_rows($query2);
+							$texto = null;
+							while($depto = mysqli_fetch_array($query2)) {
+								if($numRows2 == 1) {
+									$texto = $depto['nombre'];
+								} else { $texto .= $depto['nombre'] . ","; }
+							} 
+							if($numRows2 == 1) echo $texto; else echo substr($texto, 0, -1);
+						?>
+					</td>
+					<td><?php echo $row['NME']?></td>
+					<td><?php echo $row['marca']?></td>
+					<td><?php echo $row['serial']?></td>
+					<td><?= $vigencia." Dias" ?></td>
+					<td><?php echo $row['auditado']?></td>
+					<td><?php echo $row['calibrado']?></td>
+					<td><?php echo $row['active']?></td>
+					<?php
+				}
+			}else{
+			?>
+				<td><?php echo $row['id']?></td>
+				<td><?php echo $row['empresa']?></td>
+				<td>
+					<?php 
+						$query2 = db_query("SELECT DISTINCT(dep.id), dep.nombre FROM equipos_depto eqt INNER JOIN deptos dep ON dep.id = eqt.depto_id WHERE eqt.equipo_id = " . $row['id']);  
+						$numRows2 = mysqli_num_rows($query2);
+						$texto = null;
+						while($depto = mysqli_fetch_array($query2)) {
+							if($numRows2 == 1) {
+								$texto = $depto['nombre'];
+							} else { $texto .= $depto['nombre'] . ","; }
+						} 
+						if($numRows2 == 1) echo $texto; else echo substr($texto, 0, -1);
+					?>
+				</td>
+				<td><?php echo $row['NME']?></td>
+				<td><?php echo $row['marca']?></td>
+				<td><?php echo $row['serial']?></td>
+				<?php
+				$validacionVencimiento = ($fechaVen<=$fechaActual) ? 'Vencida' : htmlspecialchars($vigencia." Dias");
+				?>
+				<td><?=$validacionVencimiento?></td>
+				<td><?php echo $row['auditado']?></td>
+				<td><?php echo $row['calibrado']?></td>
+				<td><?php echo $row['active']?></td>
+			<?php
+			}//if
+			?>
+			</tr>
+			<?php
+		}//while
+	}else{
+		?>
+		<tr>
+			<td>0</td>
+			<td colspan="9" >No aplica</td>
+		</tr>
+		<?php
+	}//count
+	?>
+	</tbody>
+</table>

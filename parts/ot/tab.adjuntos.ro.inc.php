@@ -1,0 +1,31 @@
+<?php
+include_once "../../includes/session.php";
+include_once "../../includes/global.php";
+include_once "../../includes/database.php";
+
+$id=decrypt(getVal($_GET['id'],"0"));
+?>
+<table id="adjuntos-ro" class="ui-widget ui-widget-content" style="width: 100%">
+	<thead>
+		<tr class="ui-widget-header ">
+		<th scope="col" style="width: 50px;">No.</th>
+		<th scope="col" style="width: 140px;">Fecha carga</th>
+		<th scope="col">Cargado por</th>
+		<th scope="col">Archivo</th>
+		</tr>
+	</thead>
+	<tbody>
+	<?php
+	$query = db_query("SELECT a.id,a.titulo,a.archivo,a.create_date,a.create_user,u.nombre usuario FROM adjuntosot a, ordenes o,usuarios u WHERE a.idorden=o.id AND a.create_user=u.id AND o.id=$id");
+	$i=0;
+	while($row = mysqli_fetch_array($query)) {?>
+		<tr>
+			<td><?php echo $i++; ?></td>
+			<td><?php echo htmlspecialchars($row['create_date']); ?></td>
+			<td><?php echo htmlspecialchars($row['usuario']); ?></td>			
+			<?php echo "<td><a href=\"includes/descarga.inc.php?document=".htmlspecialchars(trim($row[archivo]))."&ruta=" . str_replace('/sgp', '', OT_FILE_WEB) . "&name=" . htmlspecialchars($row[titulo]). "\">".htmlspecialchars($row[titulo])."</a></td>\n"; ?>
+		</tr>
+	<?php } ?>
+</tbody>
+</table>
+<br class="clear"/>

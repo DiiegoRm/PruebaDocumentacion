@@ -1,0 +1,165 @@
+<?php
+include_once "../../includes/session.php";
+include_once "../../includes/global.php";
+include_once "../../includes/database.php";
+
+$id=decrypt(getVal($_GET['id'],"0"));
+$mode = getVal($_GET['mode'],"edit");
+$flag = ($mode == 'show') ? false : true;
+
+$sqsl = db_query("SELECT ecc.id, ecc.serial, ee.nombre empresa, 
+te.nombre NME, m.nombre marca, ecc.calibrado, ecc.auditado, ecc.fecha_calibracion FC, 
+ecc.fecha_vencimiento FV, ecc.active, ecc.detalle FROM equipos_ot_terminar eqt JOIN equipos_ecc ecc ON ecc.id = eqt.id_equipo 
+JOIN eecc ee ON ee.id = ecc.eecc_id 
+JOIN tipoequipo te ON te.id = ecc.funcionalidad 
+JOIN marca m ON m.id = ecc.marca_id WHERE id_ot = $id");
+
+$row5 = mysqli_num_rows($sqsl);
+
+if($row5 == 0 && ($flag) && ($OT_ST_CONORDENDETRABAJO == $idestadoot || $OT_ST_ENEJECUCION == $idestadoot)) {
+
+	$r2 = db_query("SELECT DISTINCT(ecc.id), ecc.serial, ee.nombre empresa, m.nombre marca, te.nombre NME, ecc.calibrado, ecc.auditado, 
+	ecc.fecha_calibracion FC, ecc.fecha_vencimiento FV, ecc.active, ecc.detalle FROM tipoequipo te JOIN equipos_ecc ecc
+	 ON ecc.funcionalidad = te.id JOIN eecc ee ON ee.id = ecc.eecc_id JOIN marca m ON m.id = ecc.marca_id JOIN tipoequipoxtipoproyecto tx
+	  ON tx.tipoequipo_id = te.id JOIN configuracion con ON con.ideecc = ecc.eecc_id WHERE 
+	ecc.id IN (SELECT equipo_id FROM equipos_depto WHERE depto_id = $iddepto) AND
+	  ecc.eecc_id = $ideecc AND tx.tipored_id = $idtipored");
+
+	$count = mysqli_num_rows($r2);
+
+} else {
+
+	$r2 = db_query("SELECT ecc.id, ecc.serial, ee.nombre empresa, te.nombre NME, m.nombre marca, ecc.calibrado, ecc.auditado, 
+				ecc.fecha_calibracion FC, ecc.fecha_vencimiento FV, ecc.active, ecc.detalle
+					FROM equipos_ot_terminar eqt 
+					JOIN equipos_ecc ecc ON ecc.id = eqt.id_equipo 
+					JOIN eecc ee ON ee.id = ecc.eecc_id 
+					JOIN tipoequipo te ON te.id = ecc.funcionalidad 
+					JOIN marca m ON m.id = ecc.marca_id 
+					WHERE id_ot = '$id'");
+
+	$count = mysqli_num_rows($r2);
+}
+
+?>
+
+<style>
+.yellow{
+	background-color: #ffc;
+	color: #FF6F6F;
+}
+</style>
+<table id="equipos-ro" class="ui-widget ui-widget-content" style="width: 100%">
+	<thead>
+		<tr class="ui-widget-header ">
+			<?php if($flag && ($OT_ST_CONORDENDETRABAJO == $idestadoot || $OT_ST_ENEJECUCION == $idestadoot)) { ?>
+				<th></th>
+			<?php } ?>	
+			<th>ID</th>
+			<th>Empresa</th>
+			<th>Departamento</th>
+			<th>Funcionalidad</th>
+			<th>Marca</th>
+			<th>Serial</th>
+			<th>Vigencia</th>
+			<th>Auditado</th>
+			<th>Calibrado</th>
+			<th>Activo</th>
+		</tr>
+	</thead>
+	<tbody>
+	<tr style="background-color: #dddddd;">
+		<?php if($flag && ($OT_ST_CONORDENDETRABAJO == $idestadoot || $OT_ST_ENEJECUCION == $idestadoot)) { ?>
+			<?php echo "<td ><input id='chkNot' type=\"checkbox\" class=\"checkbox\" name=\"chkLocID[]\" value=\"0\" onclick='checkNot()' /></td>\n"; ?>
+				<td>0</td>
+				<td colspan="9">No aplica</td>
+			<?php } ?>
+	</tr>
+	<?php if ($count != 0) { ?>
+		<?php while($row = mysqli_fetch_array($r2)) { 
+
+			$fechaVen = new DateTime($row['FV']);
+			$fechaActual = new DateTime(date('Y/m/d'));
+			$vigencia = date_diff($fechaVen, $fechaActual)->format('%a');
+			
+			//
+			if($fechaVen < $fechaActual)
+				$vigencia = 0;
+
+			if($vigencia > 0) {
+				if($row['auditado'] == "Pendiente" || $row['auditado'] == "OK") {
+					if($row['calibrado'] == "Si") {
+						if($row['active'] == "Si") {
+
+							if($vigencia > 0 && $vigencia <= 60){
+								$style = "yellow";
+							} else {
+								$style = "";
+							} 
+					?>
+							<tr class="<?php echo $style;?>">
+								<?php if($flag && ($OT_ST_CONORDENDETRABAJO  == $idestadoot  || $OT_ST_ENEJECUCION == $idestadoot)) { ?>
+									<?php echo "<td ><input id='chk' type=\"checkbox\" class=\"checkbox chk\" name=\"chkLocID[]\" value=\"".htmlspecialchars($row[id])."\" /></td>\n"; ?>
+								<?php } ?>
+								<td><?php echo $row['id']?></td>
+								<td><?php echo $row['empresa']?></td>
+								<td>
+								<?php 
+									$query2 = db_query("SELECT DISTINCT(dep.id), dep.nombre FROM equipos_depto eqt INNER JOIN deptos dep ON dep.id = eqt.depto_id WHERE eqt.equipo_id = " . $row[id]);  
+									$numRows2 = mysqli_num_rows($query2);
+									$texto = null;
+									while($depto = mysqli_fetch_array($query2)) {
+										if($numRows2 == 1) {
+											$texto = $depto['nombre'];
+										} else { $texto .= $depto['nombre'] . ","; }
+								} 
+								if($numRows2 == 1) echo $texto; else echo substr($texto, 0, -1);
+								?>
+								</td>
+								<td><?php echo $row['NME']?></td>
+								<td><?php echo $row['marca']?></td>
+								<td><?php echo $row['serial']?></td>
+								<td><?php echo $vigencia . " Dias"?></td>
+								<td><?php echo $row['auditado']?></td>
+								<td><?php echo $row['calibrado']?></td>
+								<td><?php echo $row['active']?></td>
+							</tr>
+		<?php		}
+				} 
+			}
+		} else { 
+			if($OT_ST_TERMINADA  >= $idestadoot && ($OT_ST_CONORDENDETRABAJO  != $idestadoot  && $OT_ST_ENEJECUCION != $idestadoot) ) {
+			?>
+			<tr >
+					<td><?php echo $row['id']?></td>
+								<td><?php echo $row['empresa']?></td>
+								<td>
+								<?php 
+									$query2 = db_query("SELECT DISTINCT(dep.id), dep.nombre FROM equipos_depto eqt INNER JOIN deptos dep ON dep.id = eqt.depto_id WHERE eqt.equipo_id = " . $row[id]);  
+									$numRows2 = mysqli_num_rows($query2);
+									$texto = null;
+									while($depto = mysqli_fetch_array($query2)) {
+										if($numRows2 == 1) {
+											$texto = $depto['nombre'];
+										} else { $texto .= $depto['nombre'] . ","; }
+								} 
+								if($numRows2 == 1) echo $texto; else echo substr($texto, 0, -1);
+								?>
+								</td>
+								<td><?php echo $row['NME']?></td>
+								<td><?php echo $row['marca']?></td>
+								<td><?php echo $row['serial']?></td>
+								<td><?php echo $vigencia . " Dias"?></td>
+								<td><?php echo $row['auditado']?></td>
+								<td><?php echo $row['calibrado']?></td>
+								<td><?php echo $row['active']?></td>
+							</tr>
+		<?php } }
+	}	
+	} else {
+		if(($OT_ST_CONORDENDETRABAJO != $idestadoot && $OT_ST_ENEJECUCION != $idestadoot)) 
+			echo "<td colspan='11' style='text-align: center'>No aplica - No se utilizó ningún equipo de medición.</td>";
+	}
+?>
+</tbody>
+</table>
